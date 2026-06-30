@@ -1,0 +1,40 @@
+schema: spec-driven
+
+context: |
+  # system-design-rag-enterprise
+
+  NotebookLM empresarial simplificado — plataforma RAG onde usuários organizam documentos
+  em notebooks e conversam com eles via IA com respostas streamadas.
+
+  ## Stack Tecnológica
+  - **Backend**: Java 21, Spring Boot 3.x, Spring AI
+  - **Cloud**: AWS (Cognito, S3, RDS, SQS, API Gateway HTTP API, ALB, ECS)
+  - **Banco**: PostgreSQL 16 + extensão pgvector (embeddings 1536 dimensões)
+  - **Auth**: AWS Cognito com provedores Google e GitHub; JWT validado stateless
+  - **LLM**: Provider OpenAI-compatible configurável globalmente (AWS Bedrock ou OpenRouter)
+  - **Frontend**: React SPA
+  - **Processamento async**: SQS (async request-reply pattern)
+  - **Streaming**: SSE (Server-Sent Events) via Spring SseEmitter
+
+  ## Domínio
+  - **User**: Usuário autenticado via Cognito (identificado por `cognito_sub`)
+  - **Notebook**: Unidade lógica de agrupamento de sources; pertence a um usuário
+  - **Source**: Documento ou URL adicionado a um notebook (PDF, DOCX, MD, URL)
+  - **SourceChunk**: Fragmento de texto de uma source com vetor de embedding
+  - **Conversation**: Sessão de chat dentro de um notebook com sources ativas selecionadas
+  - **ConversationMessage**: Mensagem (user ou assistant) dentro de uma conversa
+
+  ## Decisões Arquiteturais Chave
+  - Estrutura de pacotes por feature: `auth`, `notebook`, `source`, `ingestion`, `chat`, `shared`
+  - App é stateless: sem sessão server-side, JWT carrega identidade
+  - Upload de sources: síncrono para S3 + SQS; processamento (chunking/embedding) é assíncrono
+  - Chat usa SSE para streaming de tokens do LLM
+  - API Gateway HTTP API (não REST API) para suportar SSE sem timeout de 29s
+  - pgvector com índice HNSW para similarity search eficiente
+
+  ## Convenções
+  - DTOs como Java records
+  - Erros padronizados: `{"error": "ERROR_CODE", "message": "descrição legível"}`
+  - Todos os IDs são UUID v4
+  - Timestamps em ISO 8601 UTC (ex: `2024-01-15T10:30:00Z`)
+  - Endpoints REST com prefixo `/api/v1`
