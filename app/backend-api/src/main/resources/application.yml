@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: notebooklm
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/notebooklm}
+    username: ${SPRING_DATASOURCE_USERNAME:notebooklm}
+    password: ${SPRING_DATASOURCE_PASSWORD:notebooklm}
+  ai:
+    openai:
+      base-url: ${SPRING_AI_OPENAI_BASE_URL:}
+      api-key: ${SPRING_AI_OPENAI_API_KEY:}
+      chat:
+        options:
+          model: ${SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL:}
+
+aws:
+  region: ${AWS_REGION:us-east-1}
+  endpoint-url: ${AWS_ENDPOINT_URL:http://localhost:4566}
+  cognito:
+    user-pool-id: ${COGNITO_USER_POOL_ID:}
+    client-id: ${COGNITO_CLIENT_ID:}
+  s3:
+    bucket-name: ${S3_BUCKET_NAME:}
+  sqs:
+    ingestion-queue-url: ${SQS_INGESTION_QUEUE_URL:}

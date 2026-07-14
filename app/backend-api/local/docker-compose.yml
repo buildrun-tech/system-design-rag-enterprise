@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_DB: notebooklm
+      POSTGRES_USER: notebooklm
+      POSTGRES_PASSWORD: notebooklm
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U notebooklm -d notebooklm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  floci:
+    image: floci/floci:latest
+    ports:
+      - "4566:4566"
+    volumes:
+      - floci_data:/var/lib/floci
+
+volumes:
+  postgres_data:
+  floci_data:
