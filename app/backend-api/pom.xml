@@ -86,6 +86,79 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 			</plugin>
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.15</version>
+				<executions>
+					<execution>
+						<id>prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>report</id>
+						<phase>test</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>check</id>
+						<goals>
+							<goal>check</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<rule>
+									<element>BUNDLE</element>
+									<limits>
+										<limit>
+											<counter>LINE</counter>
+											<value>COVEREDRATIO</value>
+											<minimum>1.00</minimum>
+										</limit>
+									</limits>
+								</rule>
+							</rules>
+							<haltOnFailure>true</haltOnFailure>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.pitest</groupId>
+				<artifactId>pitest-maven</artifactId>
+				<version>1.25.8</version>
+				<dependencies>
+					<dependency>
+						<groupId>org.pitest</groupId>
+						<artifactId>pitest-junit5-plugin</artifactId>
+						<version>1.2.3</version>
+					</dependency>
+				</dependencies>
+				<configuration>
+					<targetClasses>
+						<param>tech.buildrun.notebooklm.*</param>
+					</targetClasses>
+					<targetTests>
+						<param>tech.buildrun.notebooklm.*</param>
+					</targetTests>
+					<mutationThreshold>100</mutationThreshold>
+					<!-- Skeleton do projeto ainda não tem classes com lógica mutável
+					     (só o main() da aplicação Spring Boot); reative/remova assim
+					     que houver código de negócio real pra testar. -->
+					<failWhenNoMutations>false</failWhenNoMutations>
+					<!-- Só adicione entradas aqui depois que o mutante foi reportado
+					     como STUCK por scripts/run-mutation.sh (skill java-quality-gate),
+					     sempre com comentário justificando o motivo. -->
+					<excludedMethods>
+					</excludedMethods>
+					<excludedClasses>
+					</excludedClasses>
+				</configuration>
+			</plugin>
 		</plugins>
 	</build>
 
