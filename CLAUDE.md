@@ -17,13 +17,8 @@ NotebookLM empresarial simplificado — plataforma RAG onde usuários organizam 
 │   └── changes/       ← histórico de changes
 ```
 
-<!-- caveman-instructions -->
-Ative `/caveman full`
-<!-- caveman-instructions -->
-
-<!-- ponytail-instructions -->
-Ative `/ponytail full`
-<!-- ponytail-instructions -->
+## Rules
+- Always invoke the agent skill `/caveman full`, `/ponytail full` and `/java-springboot` before starting any task
 
 <!-- rtk-instructions v2 -->
 # RTK (Rust Token Killer) - Token-Optimized Commands

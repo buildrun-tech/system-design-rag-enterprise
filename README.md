@@ -65,17 +65,21 @@ Upload de source dispara um fluxo **async request-reply** via SQS: extração de
 
 ## 🚀 Rodando localmente
 
+Pré-requisitos: `docker` e `aws cli` instalados.
+
 ```bash
-# sobe Postgres + pgvector localmente
-cd app/backend-api/local
-docker compose up -d
+# sobe Postgres + pgvector + floci (emulador Cognito local) e provisiona
+# user pool, client e usuário admin/123 — grava os IDs em app/backend-api/.env
+./app/backend-api/local/start_local.sh
 
 # roda a aplicação
-cd ../
+cd app/backend-api
 ./mvnw spring-boot:run
 ```
 
-Variáveis de ambiente necessárias em [.env.example](.env.example) — copie para `.env` e preencha AWS/Cognito/LLM.
+Login local: `admin` / senha `123`.
+
+Variáveis de ambiente necessárias em [.env.example](.env.example) — copie para `.env` e preencha AWS/Cognito/LLM (`COGNITO_USER_POOL_ID`/`COGNITO_CLIENT_ID` são preenchidos automaticamente pelo `start_local.sh`).
 
 ---
 

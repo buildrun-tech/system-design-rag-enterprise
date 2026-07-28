@@ -53,9 +53,25 @@
 		</dependency>
 
 		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
 			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-flyway</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -65,6 +81,21 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-testcontainers</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-junit-jupiter</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.testcontainers</groupId>
+			<artifactId>testcontainers-postgresql</artifactId>
 			<scope>test</scope>
 		</dependency>
 	</dependencies>
@@ -139,6 +170,10 @@
 					</dependency>
 				</dependencies>
 				<configuration>
+					<outputFormats>
+						<param>XML</param>
+						<param>HTML</param>
+					</outputFormats>
 					<targetClasses>
 						<param>tech.buildrun.notebooklm.*</param>
 					</targetClasses>
@@ -146,9 +181,6 @@
 						<param>tech.buildrun.notebooklm.*</param>
 					</targetTests>
 					<mutationThreshold>100</mutationThreshold>
-					<!-- Skeleton do projeto ainda não tem classes com lógica mutável
-					     (só o main() da aplicação Spring Boot); reative/remova assim
-					     que houver código de negócio real pra testar. -->
 					<failWhenNoMutations>false</failWhenNoMutations>
 					<!-- Só adicione entradas aqui depois que o mutante foi reportado
 					     como STUCK por scripts/run-mutation.sh (skill java-quality-gate),

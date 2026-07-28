@@ -1,10 +1,22 @@
 spring:
+  config:
+    import: "optional:file:.env[.properties]"
   application:
     name: notebooklm
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/notebooklm}
     username: ${SPRING_DATASOURCE_USERNAME:notebooklm}
     password: ${SPRING_DATASOURCE_PASSWORD:notebooklm}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${AWS_ENDPOINT_URL:http://localhost:4566}/${COGNITO_USER_POOL_ID:}
   ai:
     openai:
       base-url: ${SPRING_AI_OPENAI_BASE_URL:}
