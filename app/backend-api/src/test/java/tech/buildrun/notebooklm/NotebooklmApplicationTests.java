@@ -7,7 +7,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import static org.mockito.Mockito.mockStatic;
 
 @SpringBootTest
-class NotebooklmApplicationTests {
+class NotebooklmApplicationTests extends AbstractIntegrationTest {
 
 	@Test
 	void contextLoads() {
