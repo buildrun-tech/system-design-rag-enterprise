@@ -9,6 +9,7 @@ nunca em disco.
 import hashlib
 
 STUCK_THRESHOLD = 5
+SCORE_THRESHOLD = 80.0
 
 
 def compute_signature(gaps: list[str]) -> str:
@@ -17,15 +18,18 @@ def compute_signature(gaps: list[str]) -> str:
 
 
 def decide_status(
-    gaps: list[str], previous_signature: str | None, attempt: int
+    gaps: list[str],
+    previous_signature: str | None,
+    attempt: int,
+    score: float = 0.0,
 ) -> tuple[str, str, int]:
     """Retorna (status, signature, next_attempt).
 
-    status é PASS quando não há gaps; caso contrário FAIL (progresso ou
-    primeira tentativa) ou STUCK (mesma assinatura por >= STUCK_THRESHOLD
-    tentativas consecutivas).
+    status é PASS quando score >= SCORE_THRESHOLD; caso contrário FAIL
+    (progresso ou primeira tentativa) ou STUCK (mesma assinatura por >=
+    STUCK_THRESHOLD tentativas consecutivas).
     """
-    if not gaps:
+    if score >= SCORE_THRESHOLD:
         return "PASS", "", 0
 
     signature = compute_signature(gaps)

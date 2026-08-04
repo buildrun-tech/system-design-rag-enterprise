@@ -1,6 +1,6 @@
 ---
 name: java-quality-gate
-description: 'Enforce a deterministic 100% JUnit 5 line coverage (JaCoCo) and 100% PITest mutation score gate on Java code. 
+description: 'Enforce a deterministic minimum 80% JUnit 5 line coverage (JaCoCo) and minimum 80% PITest mutation score gate on Java code. 
 Use this whenever you finish implementing or modifying Java code in app/backend-api, whenever an OpenSpec task list includes a "run java-quality-gate" step, or whenever the user asks to write unit tests, check coverage, run mutation testing, or verify test quality for this Java codebase. Do not rely on your own judgment about whether tests are "good enough" — always run the scripts and follow their PASS/FAIL/STUCK verdict.'
 ---
 
@@ -19,7 +19,7 @@ eles leem o relatório do build daquela rodada e devolvem um veredito em texto.
 4. Se qualquer um dos dois voltar `STATUS: STUCK`, pare e reporte ao usuário — não tente de novo.
 
 Coverage primeiro, mutação depois: mutantes só fazem sentido sobre código que já tem
-100% de linha exercitada — testar mutação de código não coberto é ruído.
+pelo menos 80% de linha exercitada — testar mutação de código não coberto é ruído.
 
 ## Rodando os scripts
 

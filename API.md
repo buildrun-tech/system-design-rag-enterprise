@@ -46,26 +46,34 @@ Authorization: Bearer <cognito_access_token>
 | `PATCH` atualização | `200 OK` |
 | `DELETE` | `204 No Content` |
 
-Listagens não implementam paginação na v1. Ordenação padrão: `created_at DESC`.
+Listagens não implementam paginação na v1, com exceção de `GET /notebooks` (ver seção Notebooks). Ordenação padrão: `created_at DESC`.
 
 ---
 
 ## Notebooks
 
 ### `GET /api/v1/notebooks`
-Lista todos os notebooks do usuário autenticado.
+Lista, de forma paginada, os notebooks do usuário autenticado.
+
+**Query params:** `page` (padrão `0`), `size` (padrão `20`), `sort` (padrão `createdAt,desc`).
 
 **Response `200 OK`:**
 ```json
-[
-  {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "name": "Projeto Alpha",
-    "description": "Documentos do projeto Alpha",
-    "createdAt": "2024-01-15T10:30:00Z",
-    "updatedAt": "2024-01-15T10:30:00Z"
-  }
-]
+{
+  "content": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Projeto Alpha",
+      "description": "Documentos do projeto Alpha",
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z"
+    }
+  ],
+  "totalElements": 1,
+  "totalPages": 1,
+  "number": 0,
+  "size": 20
+}
 ```
 
 ---

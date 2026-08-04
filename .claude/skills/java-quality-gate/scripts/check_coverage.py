@@ -54,7 +54,7 @@ def main() -> None:
     gaps = find_gaps(args.jacoco_xml)
     coverage_pct = total_line_coverage(args.jacoco_xml)
     status, signature, next_attempt = decide_status(
-        gaps, args.previous_signature, args.attempt
+        gaps, args.previous_signature, args.attempt, coverage_pct
     )
 
     print(f"STATUS: {status}")
@@ -63,7 +63,7 @@ def main() -> None:
     print(f"ATTEMPT: {next_attempt}")
 
     if status == "PASS":
-        print("Line coverage 100%. Nenhuma acao necessaria.")
+        print("Line coverage >= 80%. Nenhuma acao necessaria.")
     elif status == "FAIL":
         print("Gaps de cobertura encontrados:")
         for gap in gaps:

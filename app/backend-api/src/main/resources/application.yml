@@ -25,6 +25,10 @@ spring:
         options:
           model: ${SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL:}
 
+app:
+  cors:
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
 aws:
   region: ${AWS_REGION:us-east-1}
   endpoint-url: ${AWS_ENDPOINT_URL:http://localhost:4566}
