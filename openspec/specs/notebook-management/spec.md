@@ -17,16 +17,20 @@ O sistema SHALL permitir que um usuário autenticado crie um notebook com nome e
 - **THEN** o sistema retorna `400 Bad Request` com `{"error": "name is required"}`
 
 ### Requirement: Listar notebooks do usuário
-O sistema SHALL retornar apenas os notebooks pertencentes ao usuário autenticado, ordenados por `created_at` decrescente.
+O sistema SHALL retornar, de forma paginada, apenas os notebooks pertencentes ao usuário autenticado, ordenados por `created_at` decrescente por padrão.
 
-#### Scenario: Listagem de notebooks do usuário
-- **WHEN** um usuário autenticado envia `GET /notebooks`
-- **THEN** o sistema retorna `200 OK` com array de notebooks do usuário
+#### Scenario: Listagem paginada de notebooks do usuário
+- **WHEN** um usuário autenticado envia `GET /notebooks?page=0&size=20`
+- **THEN** o sistema retorna `200 OK` com uma página contendo `content` (array de notebooks do usuário), `totalElements`, `totalPages`, `number`, e `size`
 - **AND** notebooks de outros usuários NÃO são incluídos na resposta
+
+#### Scenario: Listagem sem parâmetros de paginação
+- **WHEN** um usuário autenticado envia `GET /notebooks` sem `page`/`size`
+- **THEN** o sistema aplica página padrão (`page=0`, `size=20`, `sort=createdAt,desc`)
 
 #### Scenario: Usuário sem notebooks
 - **WHEN** um usuário autenticado sem notebooks envia `GET /notebooks`
-- **THEN** o sistema retorna `200 OK` com array vazio `[]`
+- **THEN** o sistema retorna `200 OK` com `content: []` e `totalElements: 0`
 
 ### Requirement: Buscar notebook por ID
 O sistema SHALL retornar os detalhes de um notebook específico, incluindo suas sources associadas.
