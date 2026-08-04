@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Mapear as entidades de domínio (User, Notebook, Source, SourceChunk, Conversation, ConversationMessage) via JPA/Hibernate sobre o schema versionado por Flyway, para que a camada de persistência reflita fielmente o modelo relacional — incluindo relações, cascatas e o tipo vetorial do pgvector — e falhe de forma rápida e explícita caso entidade e schema divirjam.
+
+## Requirements
 
 ### Requirement: Entidade User mapeada via JPA
 O sistema SHALL persistir usuários na tabela `users` com `id` (UUID gerado), `cognito_sub` (único), `email`, `name`, `created_at` (gerado automaticamente).

@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Fornecer a tela de listagem e criação de notebooks do usuário autenticado, permitindo visualizar os notebooks existentes, criar novos e navegar para o workspace de cada um.
+
+## Requirements
 
 ### Requirement: Listagem de notebooks
 O sistema SHALL exibir, na Tela 2, todos os notebooks do usuário autenticado, obtidos de `GET /api/v1/notebooks`.

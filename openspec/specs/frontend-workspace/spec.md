@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Fornecer o workspace de um notebook, exibindo suas sources e a conversa com o assistente, incluindo envio de mensagens e recebimento de respostas em streaming via SSE.
+
+## Requirements
 
 ### Requirement: Listagem de sources do notebook
 O sistema SHALL exibir, no painel "sources" da Tela 3, as sources do notebook obtidas de `GET /api/v1/notebooks/{notebookId}/sources`, incluindo seu status de processamento.

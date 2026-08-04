@@ -1,4 +1,8 @@
-## ADDED Requirements
+## Purpose
+
+Fornecer o fluxo de autenticação do frontend via AWS Cognito Hosted UI, mantendo a sessão do usuário e anexando o access token a todas as requisições à API, para que apenas usuários autenticados acessem as telas de notebooks e workspace.
+
+## Requirements
 
 ### Requirement: Login via Cognito Hosted UI
 O sistema SHALL apresentar uma tela de login com botões "Login Google" e "Login Github" que redirecionam para o Cognito Hosted UI usando fluxo OAuth2 Authorization Code + PKCE.
