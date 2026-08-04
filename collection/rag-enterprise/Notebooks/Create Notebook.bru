@@ -1,0 +1,26 @@
+meta {
+  name: Create Notebook
+  type: http
+  seq: 2
+}
+
+post {
+  url: http://localhost:8080/api/v1/notebooks
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InVzLWVhc3QtMV85NzE2OWI5MjIifQ.eyJzdWIiOiI5NzM0NDYwNy1hYWM0LTQ1OWUtOTJkMi0xYjQxOGJhZWI4MzkiLCJldmVudF9pZCI6IjlkMjJjYWNjLWEwMzAtNDUyNi1hNDg5LTE1MGYxNWMzNDg1OCIsInRva2VuX3VzZSI6ImFjY2VzcyIsImF1dGhfdGltZSI6MTc4NTgwMTI1MSwiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo0NTY2L3VzLWVhc3QtMV85NzE2OWI5MjIiLCJleHAiOjE3ODU4MDQ4NTEsImlhdCI6MTc4NTgwMTI1MSwidXNlcm5hbWUiOiJhZG1pbiIsImVtYWlsIjoiYWRtaW4iLCJjb2duaXRvOnVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiIxNzkyYzEwMS1hOWUzLTQ4NzktYTU3Mi0xNzBhY2YwMDYyYzkiLCJjbGllbnRfaWQiOiI3NDdlODExYmFhNGQ0OTg5YWQwMzRkNDMxMiJ9.KYhw-JTuTVf5f6BgdV6utN7htb8EMXL9rIqfmnOPXDNQ8gtoV74lo8ws-kyO9_NlkuB1Znhj43dHpAiaMkuq978asA5Gx1RSL1G9d-zQkYowvpqL0FYFkXRpppbVOPQOWpdsrkbj_8ISIt25cczP406cdOXYspe4K2QrdXVZ9c0Qc2nhWgP4RO2Fq4jBbYdOLsvpKGJj8k4u4ut8jIMU9qSrZacTL3E12Zvx3FcdTzRl8wQ3VRGA80Scv81P_X8sl94TlPtw2yYEIrJegqAtdtFWk1myGnp7QPkIJT0ReggBUmgZRuPwptGkt1f2b6immoM3VWrUk05au54HMViI-A
+}
+
+body:json {
+  {
+    "name": "Estudo de Node",
+    "description": "meu notebook para estudar node"
+  }
+}
+
+settings {
+  encodeUrl: true
+}

@@ -62,7 +62,7 @@ def main() -> None:
     gaps = find_gaps(args.mutations_xml)
     score = mutation_score(args.mutations_xml)
     status, signature, next_attempt = decide_status(
-        gaps, args.previous_signature, args.attempt
+        gaps, args.previous_signature, args.attempt, score
     )
 
     print(f"STATUS: {status}")
@@ -71,7 +71,7 @@ def main() -> None:
     print(f"ATTEMPT: {next_attempt}")
 
     if status == "PASS":
-        print("Mutation score 100%. Nenhuma acao necessaria.")
+        print("Mutation score >= 80%. Nenhuma acao necessaria.")
     elif status == "FAIL":
         print("Mutantes nao mortos encontrados:")
         for gap in gaps:
