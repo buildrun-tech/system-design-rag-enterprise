@@ -1,3 +1,7 @@
+export interface Page<T> {
+  content: T[]
+}
+
 export type SourceType = 'FILE' | 'URL'
 export type SourceStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED'
 export type MessageRole = 'user' | 'assistant'

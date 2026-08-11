@@ -1,32 +1,39 @@
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
+  /* DESIGN.md: texto no primary usa --text-h (preto), --text (roxo-acinzentado)
+     fica só pra conteúdo secundário — primary puro em texto de corpo falha WCAG AA */
+  --text: #8e8ea0;
+  --text-h: #000;
   --bg: #fff;
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
+  --accent: #8e8ea0;
+  --on-accent: #fff;
+  --accent-bg: rgba(142, 142, 160, 0.1);
+  --accent-border: rgba(142, 142, 160, 0.5);
   --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --radius-sm: 5px;
+  --motion: 400ms ease;
+
+  font: 16px/150% var(--sans);
   color-scheme: light dark;
-  color: var(--text);
+  color: var(--text-h);
   background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
+  @media (max-width: 768px) {
+    font-size: 15px;
   }
 }
 
@@ -38,11 +45,10 @@
     --border: #2e303a;
     --code-bg: #1f2028;
     --accent: #c084fc;
+    --on-accent: #16171d;
     --accent-bg: rgba(192, 132, 252, 0.15);
     --accent-border: rgba(192, 132, 252, 0.5);
     --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
   }
 
   #social .button-icon {
@@ -69,26 +75,26 @@ body {
 h1,
 h2 {
   font-family: var(--heading);
-  font-weight: 500;
   color: var(--text-h);
 }
 
 h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+  font-size: 48px;
+  font-weight: 700;
+  line-height: 1.5;
+  margin: var(--space-4) 0;
+  @media (max-width: 768px) {
+    font-size: 32px;
+    margin: var(--space-3) 0;
   }
 }
 h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.5;
+  margin: 0 0 var(--space-1);
+  @media (max-width: 768px) {
+    font-size: 24px;
   }
 }
 p {

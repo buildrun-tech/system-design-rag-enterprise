@@ -45,13 +45,17 @@ fi
 CLIENT_ID=$(aws_local cognito-idp list-user-pool-clients --user-pool-id "$POOL_ID" --max-results 60 \
   --query "UserPoolClients[?ClientName=='notebooklm-local-client'].ClientId | [0]" --output text)
 
+CLIENT_AUTH_FLOWS="ADMIN_NO_SRP_AUTH ALLOW_USER_PASSWORD_AUTH ALLOW_REFRESH_TOKEN_AUTH"
+
 if [ "$CLIENT_ID" = "None" ] || [ -z "$CLIENT_ID" ]; then
   echo "==> Criando app client"
   CLIENT_ID=$(aws_local cognito-idp create-user-pool-client --user-pool-id "$POOL_ID" \
-    --client-name "notebooklm-local-client" --explicit-auth-flows ADMIN_NO_SRP_AUTH \
+    --client-name "notebooklm-local-client" --explicit-auth-flows $CLIENT_AUTH_FLOWS \
     --query "UserPoolClient.ClientId" --output text)
 else
-  echo "==> App client já existe: $CLIENT_ID"
+  echo "==> App client já existe: $CLIENT_ID (garantindo auth flows)"
+  aws_local cognito-idp update-user-pool-client --user-pool-id "$POOL_ID" --client-id "$CLIENT_ID" \
+    --explicit-auth-flows $CLIENT_AUTH_FLOWS >/dev/null
 fi
 
 if aws_local cognito-idp admin-get-user --user-pool-id "$POOL_ID" --username "$ADMIN_USER" >/dev/null 2>&1; then

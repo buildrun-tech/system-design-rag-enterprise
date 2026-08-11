@@ -1,0 +1,25 @@
+meta {
+  name: Create Conversation
+  type: http
+  seq: 1
+}
+
+post {
+  url: http://localhost:8080/api/v1/notebooks/ecd9d706-ef1f-4900-b2c8-4f6f3b9cf2b1/conversations
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InVzLWVhc3QtMV81MjhmMjNlMWEifQ.eyJzdWIiOiI3MDE3YmQ3NC04MTNhLTRhM2ItYmI0My00MjQyYjUxNmExZjYiLCJldmVudF9pZCI6IjMzYjAxYTcxLWJlYjAtNDM1ZS04YjkxLTAzZTlkZTczODA2ZCIsInRva2VuX3VzZSI6ImFjY2VzcyIsImF1dGhfdGltZSI6MTc4NjQwNTc2MywiaXNzIjoiaHR0cDovL2xvY2FsaG9zdDo0NTY2L3VzLWVhc3QtMV81MjhmMjNlMWEiLCJleHAiOjE3ODY0MDkzNjMsImlhdCI6MTc4NjQwNTc2MywidXNlcm5hbWUiOiJhZG1pbiIsImVtYWlsIjoiYWRtaW4iLCJjb2duaXRvOnVzZXJuYW1lIjoiYWRtaW4iLCJqdGkiOiIxY2UyN2U3OS0wMjFiLTRmODItYjNlNS0xNzZhNGI3Y2NmMjkiLCJjbGllbnRfaWQiOiIwMTBjOWFhNDc0OGQ0YTJmOGZkNmEwNWM0MyJ9.Jk_gXC4-p56cIvds92nAfDZW58CHoPcFnS329jtv8CI0KvYeW7u87X70vyT75qHeT15dPJ6gc04_t0g5RVvDj_ys4xkDC5VBpP-cOgNqzNwXKa5bj3LGo3lcOZL_7l9KFdvK2z1WeUo3dATYgEePpx8aaRprEdzwtOmdTtVRL3PddxRmDWh1b_IUrIRus4DaRr7sZMSrhKritV9kMwi1mulQT6URT_deb-vbIKeFndSFfS3KhwaZwiZnGOrq0dsrcsCRGQndAmc1HOY9jKrOcGbRl2YN7YxD_VBCNpQvjiY908LPSfaLXJX7yPSAH4pL4hL7LZizUY7ThbHW4ldJug
+}
+
+body:json {
+  {
+    "activeSourceIds": []
+  }
+}
+
+settings {
+  encodeUrl: true
+}

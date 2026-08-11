@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 .env
+test-results
+playwright-report
 
 # Editor directories and files
 .vscode/*
