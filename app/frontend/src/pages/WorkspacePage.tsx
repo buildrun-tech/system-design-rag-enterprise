@@ -1,10 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useAuth } from 'react-oidc-context'
+import { useActiveAuth } from '../auth/useActiveAuth'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { apiFetch } from '../api/client'
 import type { Conversation, ConversationMessage, Source } from '../api/types'
+
+interface NotebookDetail {
+  sources: Source[]
+}
 import UserMenu from '../components/UserMenu'
+import Button from '../components/ui/Button'
+import Input from '../components/ui/Input'
+import Card from '../components/ui/Card'
 
 interface ChatMessage extends ConversationMessage {
   streaming?: boolean
@@ -15,8 +22,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
 export default function WorkspacePage() {
   const { notebookId } = useParams<{ notebookId: string }>()
-  const auth = useAuth()
-  const token = auth.user?.access_token ?? ''
+  const { token } = useActiveAuth()
 
   const [sources, setSources] = useState<Source[]>([])
   const [conversation, setConversation] = useState<Conversation | null>(null)
@@ -25,8 +31,8 @@ export default function WorkspacePage() {
   const abortRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
-    if (!notebookId) return
-    apiFetch<Source[]>(`/api/v1/notebooks/${notebookId}/sources`, token).then(setSources)
+    if (!notebookId || !token) return
+    apiFetch<NotebookDetail>(`/api/v1/notebooks/${notebookId}`, token).then((detail) => setSources(detail.sources))
   }, [notebookId, token])
 
   useEffect(() => {
@@ -105,12 +111,12 @@ export default function WorkspacePage() {
   }
 
   return (
-    <main style={{ padding: '2rem', display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '1rem', height: '90vh' }}>
+    <main style={{ padding: 'var(--space-4)', display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 'var(--space-2)', height: '90vh' }}>
       <header style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end' }}>
         <UserMenu />
       </header>
 
-      <section style={{ border: '1px solid #ccc', borderRadius: '0.5rem', padding: '1rem', overflowY: 'auto' }}>
+      <Card style={{ overflowY: 'auto', textAlign: 'left' }}>
         <h2>sources</h2>
         <ul style={{ listStyle: 'none', padding: 0 }}>
           {sources.map((source) => (
@@ -120,11 +126,11 @@ export default function WorkspacePage() {
             </li>
           ))}
         </ul>
-      </section>
+      </Card>
 
-      <section style={{ border: '1px solid #ccc', borderRadius: '0.5rem', padding: '1rem', display: 'flex', flexDirection: 'column' }}>
+      <Card style={{ display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
         <h2>chat</h2>
-        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
           {messages.map((message) => (
             <p key={message.id}>
               <strong>{message.role === 'user' ? 'Você' : 'Assistente'}:</strong> {message.content}
@@ -133,16 +139,16 @@ export default function WorkspacePage() {
             </p>
           ))}
         </div>
-        <form onSubmit={handleSend} style={{ display: 'flex', gap: '0.5rem' }}>
-          <input
+        <form onSubmit={handleSend} style={{ display: 'flex', gap: 'var(--space-1)' }}>
+          <Input
             value={input}
             onChange={(event) => setInput(event.target.value)}
             placeholder="Ola chat, etc"
             style={{ flex: 1 }}
           />
-          <button type="submit">{'>'}</button>
+          <Button type="submit">{'>'}</Button>
         </form>
-      </section>
+      </Card>
     </main>
   )
 }

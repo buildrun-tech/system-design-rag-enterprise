@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import tech.buildrun.notebooklm.AbstractIntegrationTest;
 import tech.buildrun.notebooklm.entity.Conversation;
 import tech.buildrun.notebooklm.entity.ConversationMessage;
@@ -21,6 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -75,5 +77,38 @@ class ConversationMessageApiIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].content").value("question"))
                 .andExpect(jsonPath("$[1].content").value("answer"));
+    }
+
+    @Test
+    void userCannotSendMessageToConversationOwnedByAnotherUserTwoHops() throws Exception {
+        String ownerSub = "owner-" + UUID.randomUUID();
+        String intruderSub = "intruder-" + UUID.randomUUID();
+
+        User owner = userRepository.save(new User(ownerSub, ownerSub + "@test.com", "Owner"));
+        Notebook notebook = notebookRepository.save(new Notebook(owner, "Notebook", null));
+        Conversation conversation = conversationRepository.save(new Conversation(notebook));
+
+        mockMvc.perform(post("/api/v1/conversations/" + conversation.getId() + "/messages")
+                        .header("Authorization", "Bearer " + intruderSub)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"pergunta\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("CONVERSATION_NOT_FOUND"));
+    }
+
+    @Test
+    void sendMessageWithBlankContentFailsValidationWithoutCallingLlm() throws Exception {
+        String ownerSub = "owner-" + UUID.randomUUID();
+
+        User owner = userRepository.save(new User(ownerSub, ownerSub + "@test.com", "Owner"));
+        Notebook notebook = notebookRepository.save(new Notebook(owner, "Notebook", null));
+        Conversation conversation = conversationRepository.save(new Conversation(notebook));
+
+        mockMvc.perform(post("/api/v1/conversations/" + conversation.getId() + "/messages")
+                        .header("Authorization", "Bearer " + ownerSub)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
     }
 }

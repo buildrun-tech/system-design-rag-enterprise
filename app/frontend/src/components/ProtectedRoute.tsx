@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
-import { useAuth } from 'react-oidc-context'
+import { useActiveAuth } from '../auth/useActiveAuth'
 
 export default function ProtectedRoute({ children }: { children: ReactNode }) {
-  const auth = useAuth()
+  const auth = useActiveAuth()
 
   if (auth.isLoading) {
     return <p>Carregando...</p>
