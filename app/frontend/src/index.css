@@ -6,10 +6,10 @@
   --bg: #fff;
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
-  --accent: #8e8ea0;
+  --accent: #0d0d0d;
   --on-accent: #fff;
-  --accent-bg: rgba(142, 142, 160, 0.1);
-  --accent-border: rgba(142, 142, 160, 0.5);
+  --accent-bg: rgba(13, 13, 13, 0.06);
+  --accent-border: rgba(13, 13, 13, 0.4);
   --social-bg: rgba(244, 243, 236, 0.5);
 
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
@@ -20,11 +20,11 @@
   --space-2: 16px;
   --space-3: 24px;
   --space-4: 32px;
-  --radius-sm: 5px;
+  --radius-sm: 8px;
   --motion: 400ms ease;
 
   font: 16px/150% var(--sans);
-  color-scheme: light dark;
+  color-scheme: light;
   color: var(--text-h);
   background: var(--bg);
   font-synthesis: none;
@@ -37,23 +37,22 @@
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --on-accent: #16171d;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-  }
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --text: #9ca3af;
+  --text-h: #f3f4f6;
+  --bg: #16171d;
+  --border: #2e303a;
+  --code-bg: #1f2028;
+  --accent: #f3f4f6;
+  --on-accent: #16171d;
+  --accent-bg: rgba(243, 244, 246, 0.1);
+  --accent-border: rgba(243, 244, 246, 0.4);
+  --social-bg: rgba(47, 48, 58, 0.5);
+}
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+:root[data-theme='dark'] #social .button-icon {
+  filter: invert(1) brightness(2);
 }
 
 #root {

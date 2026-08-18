@@ -12,6 +12,7 @@ public record SourceResponse(
         String name,
         SourceType type,
         SourceStatus status,
+        String errorMessage,
         Instant createdAt
 ) {
 
@@ -21,6 +22,7 @@ public record SourceResponse(
                 source.getName(),
                 source.getType(),
                 source.getStatus(),
+                source.getErrorMessage(),
                 source.getCreatedAt()
         );
     }
