@@ -5,6 +5,8 @@ import { useDirectAuth } from '../auth/useDirectAuth'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import Input from '../components/ui/Input'
+import ThemeToggle from '../components/ThemeToggle'
+import { IconGithub, IconGoogle } from '../components/icons'
 
 const DIRECT_SIGNUP_ENABLED = import.meta.env.VITE_ENABLE_DIRECT_SIGNUP === 'true'
 
@@ -36,21 +38,34 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ display: 'flex', justifyContent: 'center', marginTop: '4rem' }}>
-      <Card style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)', width: '320px' }}>
-        <h1 style={{ fontSize: '32px', margin: 0 }}>NotebookLM</h1>
-        <Button style={{ width: '100%' }} onClick={() => auth.signinRedirect({ extraQueryParams: { identity_provider: 'Google' } })}>
+    <main className="center-page">
+      <div className="theme-toggle-corner">
+        <ThemeToggle />
+      </div>
+      <Card className="stack login-card">
+        <h1 className="login-title">NotebookLM</h1>
+        <Button
+          variant="secondary"
+          className="full-width"
+          onClick={() => auth.signinRedirect({ extraQueryParams: { identity_provider: 'Google' } })}
+        >
+          <IconGoogle />
           Login Google
         </Button>
-        <Button style={{ width: '100%' }} onClick={() => auth.signinRedirect({ extraQueryParams: { identity_provider: 'GitHub' } })}>
+        <Button
+          variant="secondary"
+          className="full-width"
+          onClick={() => auth.signinRedirect({ extraQueryParams: { identity_provider: 'GitHub' } })}
+        >
+          <IconGithub />
           Login Github
         </Button>
         {auth.error && <p role="alert">{auth.error.message}</p>}
 
         {DIRECT_SIGNUP_ENABLED && (
           <>
-            <p style={{ margin: 0, color: 'var(--text)' }}>ou entre com email e senha (dev local)</p>
-            <form onSubmit={handleDirectLogin} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)', width: '100%' }}>
+            <p className="text-muted">ou entre com email e senha (dev local)</p>
+            <form onSubmit={handleDirectLogin} className="stack full-width">
               <Input
                 type="email"
                 value={email}
@@ -65,11 +80,11 @@ export default function LoginPage() {
                 placeholder="senha"
                 required
               />
-              <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                <Button type="submit" style={{ flex: 1 }} disabled={direct.isLoading}>
+              <div className="row">
+                <Button type="submit" className="flex-1" disabled={direct.isLoading}>
                   Entrar
                 </Button>
-                <Button type="button" variant="secondary" style={{ flex: 1 }} disabled={direct.isLoading} onClick={handleDirectSignUp}>
+                <Button type="button" variant="secondary" className="flex-1" disabled={direct.isLoading} onClick={handleDirectSignUp}>
                   Cadastrar
                 </Button>
               </div>

@@ -82,6 +82,10 @@ public class Source {
         return s3Key;
     }
 
+    public void setS3Key(String s3Key) {
+        this.s3Key = s3Key;
+    }
+
     public String getUrl() {
         return url;
     }

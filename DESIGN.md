@@ -1,11 +1,11 @@
 ---
-version: alpha
+version: alpha.1
 name: OpenAI
-description: "A light interface extracted from OpenAI accented with #8e8ea0, with a 8px spacing system and a system-ui type stack."
+description: "A light interface accented with a near-black primary (#0d0d0d), with a 8px spacing system and a system-ui type stack. Palette manually adjusted from the original openai.com measurement, not re-measured against the live site."
 sourceUrl: "https://openai.com"
 
 colors:
-  primary: "#8e8ea0"
+  primary: "#0d0d0d"
   on-primary: "#ffffff"
   text: "#8e8ea0"
   text-muted: "#000000"
@@ -32,7 +32,7 @@ spacing:
   scale: [8]
 
 radius:
-  sm: 5px
+  sm: 8px
 
 motion:
   duration-fast: 400ms

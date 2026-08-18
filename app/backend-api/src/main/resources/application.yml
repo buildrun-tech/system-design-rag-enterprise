@@ -23,6 +23,27 @@ spring:
       api-key: ${SPRING_AI_OPENAI_API_KEY:}
       chat:
         model: ${SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL:}
+      embedding:
+        options:
+          model: ${SPRING_AI_OPENAI_EMBEDDING_OPTIONS_MODEL:openai/text-embedding-3-large}
+          # truncado pra 1536: pgvector HNSW nao indexa acima de 2000 dimensoes,
+          # e text-embedding-3-large nativo sai em 3072
+          dimensions: 1536
+    vectorstore:
+      pgvector:
+        initialize-schema: false
+        dimensions: 1536
+
+  cloud:
+    aws:
+      region:
+        static: ${AWS_REGION:us-east-1}
+      endpoint: ${AWS_ENDPOINT_URL:http://localhost:4566}
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID:test}
+        secret-key: ${AWS_SECRET_ACCESS_KEY:test}
+      s3:
+        path-style-access-enabled: true
 
 app:
   cors:

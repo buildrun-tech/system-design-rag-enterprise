@@ -13,7 +13,6 @@ import tech.buildrun.notebooklm.entity.ConversationMessage;
 import tech.buildrun.notebooklm.entity.MessageRole;
 import tech.buildrun.notebooklm.entity.Notebook;
 import tech.buildrun.notebooklm.entity.Source;
-import tech.buildrun.notebooklm.entity.SourceChunk;
 import tech.buildrun.notebooklm.entity.SourceType;
 import tech.buildrun.notebooklm.entity.User;
 
@@ -30,16 +29,13 @@ class CascadeDeleteTest extends AbstractIntegrationTest {
     private UserRepository userRepository;
 
     @Autowired
-    private SourceChunkRepository sourceChunkRepository;
-
-    @Autowired
     private ConversationMessageRepository conversationMessageRepository;
 
     @Autowired
     private EntityManager entityManager;
 
     @Test
-    void deletingUserCascadesDownToSourceChunksAndConversationMessages() {
+    void deletingUserCascadesDownToConversationMessages() {
         var user = new User(UUID.randomUUID().toString(), "user@test.com", "Test User");
         entityManager.persist(user);
 
@@ -48,9 +44,6 @@ class CascadeDeleteTest extends AbstractIntegrationTest {
 
         var source = new Source(notebook, "doc.pdf", SourceType.FILE, "some/key", null);
         entityManager.persist(source);
-
-        var chunk = new SourceChunk(source, "content", new float[1536], 0, "text-embedding-ada-002");
-        entityManager.persist(chunk);
 
         var conversation = new Conversation(notebook);
         entityManager.persist(conversation);
@@ -61,7 +54,6 @@ class CascadeDeleteTest extends AbstractIntegrationTest {
         entityManager.flush();
 
         var userId = user.getId();
-        var chunkId = chunk.getId();
         var messageId = message.getId();
 
         entityManager.clear();
@@ -70,7 +62,6 @@ class CascadeDeleteTest extends AbstractIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        assertThat(sourceChunkRepository.findById(chunkId)).isEmpty();
         assertThat(conversationMessageRepository.findById(messageId)).isEmpty();
         assertThat(userRepository.findById(userId)).isEmpty();
     }

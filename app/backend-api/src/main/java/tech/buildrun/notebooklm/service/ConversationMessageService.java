@@ -1,6 +1,7 @@
 package tech.buildrun.notebooklm.service;
 
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
@@ -12,16 +13,21 @@ import tech.buildrun.notebooklm.dto.ConversationMessageResponse;
 import tech.buildrun.notebooklm.entity.Conversation;
 import tech.buildrun.notebooklm.entity.ConversationMessage;
 import tech.buildrun.notebooklm.entity.MessageRole;
+import tech.buildrun.notebooklm.entity.Source;
+import tech.buildrun.notebooklm.entity.SourceStatus;
 import tech.buildrun.notebooklm.exception.ConversationNotFoundException;
 import tech.buildrun.notebooklm.repository.ConversationMessageRepository;
 import tech.buildrun.notebooklm.repository.ConversationRepository;
+import tech.buildrun.notebooklm.repository.SourceRepository;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class ConversationMessageService {
@@ -31,14 +37,20 @@ public class ConversationMessageService {
 
     private final ConversationRepository conversationRepository;
     private final ConversationMessageRepository conversationMessageRepository;
+    private final SourceRepository sourceRepository;
     private final ChatClient chatClient;
+    private final QuestionAnswerAdvisor questionAnswerAdvisor;
 
     public ConversationMessageService(ConversationRepository conversationRepository,
                                        ConversationMessageRepository conversationMessageRepository,
-                                       ChatClient chatClient) {
+                                       SourceRepository sourceRepository,
+                                       ChatClient chatClient,
+                                       QuestionAnswerAdvisor questionAnswerAdvisor) {
         this.conversationRepository = conversationRepository;
         this.conversationMessageRepository = conversationMessageRepository;
+        this.sourceRepository = sourceRepository;
         this.chatClient = chatClient;
+        this.questionAnswerAdvisor = questionAnswerAdvisor;
     }
 
     public List<ConversationMessageResponse> listByConversation(UUID conversationId, UUID ownerId) {
@@ -54,6 +66,7 @@ public class ConversationMessageService {
                 .orElseThrow(ConversationNotFoundException::new);
 
         List<Message> promptMessages = buildPromptMessages(conversationId, content);
+        String filterExpression = buildActiveSourcesFilter(conversation);
 
         conversationMessageRepository.save(new ConversationMessage(conversation, MessageRole.user, content));
 
@@ -61,6 +74,8 @@ public class ConversationMessageService {
 
         chatClient.prompt()
                 .messages(promptMessages)
+                .advisors(a -> a.advisors(questionAnswerAdvisor)
+                        .param(QuestionAnswerAdvisor.FILTER_EXPRESSION, filterExpression))
                 .stream()
                 .content()
                 .subscribeOn(Schedulers.boundedElastic())
@@ -69,6 +84,20 @@ public class ConversationMessageService {
                         error -> onStreamError(emitter, error),
                         () -> onStreamComplete(emitter, conversation, assistantResponse)
                 );
+    }
+
+    String buildActiveSourcesFilter(Conversation conversation) {
+        Set<Source> activeSources = conversation.getActiveSources();
+        List<UUID> sourceIds = activeSources.isEmpty()
+                ? sourceRepository.findByNotebook_IdAndStatus(conversation.getNotebook().getId(), SourceStatus.READY)
+                        .stream().map(Source::getId).toList()
+                : activeSources.stream().map(Source::getId).toList();
+
+        if (sourceIds.isEmpty()) {
+            return "source_id == 'none'";
+        }
+        String ids = sourceIds.stream().map(id -> "'" + id + "'").collect(Collectors.joining(","));
+        return "source_id in [" + ids + "]";
     }
 
     private List<Message> buildPromptMessages(UUID conversationId, String newUserContent) {

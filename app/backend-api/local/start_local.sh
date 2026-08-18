@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sobe postgres+floci e provisiona Cognito local (user pool, client, admin/123).
+# Sobe postgres+floci e provisiona Cognito local (user pool, client, admin/123) + bucket S3.
 # Requer: docker, aws cli.
 set -euo pipefail
 
@@ -10,6 +10,9 @@ REGION="us-east-1"
 POOL_NAME="notebooklm-local"
 ADMIN_USER="admin"
 ADMIN_PASSWORD="123"
+BUCKET_NAME="$(grep -m1 '^S3_BUCKET_NAME=' "$ENV_FILE" 2>/dev/null | cut -d= -f2-)"
+BUCKET_NAME="${BUCKET_NAME:-notebooklm-sources-local}"
+QUEUE_NAME="notebooklm-ingestion-local"
 
 aws_local() {
   aws --endpoint-url "$ENDPOINT_URL" --region "$REGION" "$@"
@@ -69,10 +72,23 @@ fi
 aws_local cognito-idp admin-set-user-password --user-pool-id "$POOL_ID" \
   --username "$ADMIN_USER" --password "$ADMIN_PASSWORD" --permanent
 
+echo "==> Verificando bucket S3 ($BUCKET_NAME)"
+if aws_local s3api head-bucket --bucket "$BUCKET_NAME" >/dev/null 2>&1; then
+  echo "==> Bucket já existe: $BUCKET_NAME"
+else
+  echo "==> Criando bucket $BUCKET_NAME"
+  aws_local s3 mb "s3://$BUCKET_NAME" >/dev/null
+fi
+
+echo "==> Verificando fila SQS ($QUEUE_NAME)"
+QUEUE_URL=$(aws_local sqs create-queue --queue-name "$QUEUE_NAME" --query "QueueUrl" --output text)
+
 echo "==> Atualizando $ENV_FILE"
 sed -i \
   -e "s|^COGNITO_USER_POOL_ID=.*|COGNITO_USER_POOL_ID=$POOL_ID|" \
   -e "s|^COGNITO_CLIENT_ID=.*|COGNITO_CLIENT_ID=$CLIENT_ID|" \
+  -e "s|^S3_BUCKET_NAME=.*|S3_BUCKET_NAME=$BUCKET_NAME|" \
+  -e "s|^SQS_INGESTION_QUEUE_URL=.*|SQS_INGESTION_QUEUE_URL=$QUEUE_URL|" \
   "$ENV_FILE"
 
-echo "==> Pronto. Pool: $POOL_ID | Client: $CLIENT_ID | login: $ADMIN_USER / $ADMIN_PASSWORD"
+echo "==> Pronto. Pool: $POOL_ID | Client: $CLIENT_ID | Bucket: $BUCKET_NAME | Fila: $QUEUE_URL | login: $ADMIN_USER / $ADMIN_PASSWORD"

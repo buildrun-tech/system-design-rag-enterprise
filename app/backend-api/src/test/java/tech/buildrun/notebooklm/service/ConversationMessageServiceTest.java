@@ -1,11 +1,15 @@
 package tech.buildrun.notebooklm.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
@@ -14,6 +18,7 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
@@ -21,10 +26,12 @@ import tech.buildrun.notebooklm.entity.Conversation;
 import tech.buildrun.notebooklm.entity.ConversationMessage;
 import tech.buildrun.notebooklm.entity.MessageRole;
 import tech.buildrun.notebooklm.entity.Notebook;
+import tech.buildrun.notebooklm.entity.SourceStatus;
 import tech.buildrun.notebooklm.entity.User;
 import tech.buildrun.notebooklm.exception.ConversationNotFoundException;
 import tech.buildrun.notebooklm.repository.ConversationMessageRepository;
 import tech.buildrun.notebooklm.repository.ConversationRepository;
+import tech.buildrun.notebooklm.repository.SourceRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +49,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class ConversationMessageServiceTest {
 
     @Mock
@@ -49,6 +57,23 @@ class ConversationMessageServiceTest {
 
     @Mock
     private ConversationMessageRepository conversationMessageRepository;
+
+    @Mock
+    private SourceRepository sourceRepository;
+
+    @Mock
+    private VectorStore vectorStore;
+
+    private QuestionAnswerAdvisor questionAnswerAdvisor;
+
+    @BeforeEach
+    void setUp() {
+        when(vectorStore.similaritySearch(any(org.springframework.ai.vectorstore.SearchRequest.class)))
+                .thenReturn(List.of());
+        when(sourceRepository.findByNotebook_IdAndStatus(any(UUID.class), any(SourceStatus.class)))
+                .thenReturn(List.of());
+        questionAnswerAdvisor = QuestionAnswerAdvisor.builder(vectorStore).build();
+    }
 
     @Test
     void sendMessageIncludesHistoryPersistsUserMessageBeforeCallAndAssistantMessageAfterComplete() throws Exception {
@@ -74,7 +99,7 @@ class ConversationMessageServiceTest {
         ChatClient chatClient = ChatClient.create(fakeChatModel);
 
         ConversationMessageService service = new ConversationMessageService(
-                conversationRepository, conversationMessageRepository, chatClient);
+                conversationRepository, conversationMessageRepository, sourceRepository, chatClient, questionAnswerAdvisor);
 
         SseEmitter emitter = mock(SseEmitter.class);
 
@@ -90,7 +115,8 @@ class ConversationMessageServiceTest {
         assertThat(promptMessages.get(2).getMessageType()).isEqualTo(MessageType.ASSISTANT);
         assertThat(promptMessages.get(2).getText()).isEqualTo("previous answer");
         assertThat(promptMessages.get(3).getMessageType()).isEqualTo(MessageType.USER);
-        assertThat(promptMessages.get(3).getText()).isEqualTo("new question");
+        // QuestionAnswerAdvisor envolve o texto original num template de contexto RAG
+        assertThat(promptMessages.get(3).getText()).contains("new question");
 
         verify(emitter, org.mockito.Mockito.times(3)).send(any(SseEmitter.SseEventBuilder.class));
 
@@ -114,7 +140,8 @@ class ConversationMessageServiceTest {
                 .thenReturn(Optional.empty());
 
         ConversationMessageService service = new ConversationMessageService(
-                conversationRepository, conversationMessageRepository, mock(ChatClient.class));
+                conversationRepository, conversationMessageRepository, sourceRepository,
+                mock(ChatClient.class), questionAnswerAdvisor);
 
         assertThatThrownBy(() -> service.sendMessage(conversationId, ownerId, "hi", new SseEmitter()))
                 .isInstanceOf(ConversationNotFoundException.class);
@@ -145,7 +172,7 @@ class ConversationMessageServiceTest {
         ChatClient chatClient = ChatClient.create(failingChatModel);
 
         ConversationMessageService service = new ConversationMessageService(
-                conversationRepository, conversationMessageRepository, chatClient);
+                conversationRepository, conversationMessageRepository, sourceRepository, chatClient, questionAnswerAdvisor);
 
         SseEmitter emitter = mock(SseEmitter.class);
 
@@ -177,7 +204,7 @@ class ConversationMessageServiceTest {
         ChatClient chatClient = ChatClient.create(fakeChatModel);
 
         ConversationMessageService service = new ConversationMessageService(
-                conversationRepository, conversationMessageRepository, chatClient);
+                conversationRepository, conversationMessageRepository, sourceRepository, chatClient, questionAnswerAdvisor);
 
         SseEmitter emitter = mock(SseEmitter.class);
         org.mockito.Mockito.doThrow(new java.io.IOException("broken pipe"))
@@ -186,6 +213,68 @@ class ConversationMessageServiceTest {
         service.sendMessage(conversationId, ownerId, "hi", emitter);
 
         verify(emitter, timeout(5000)).completeWithError(any(java.io.IOException.class));
+    }
+
+    @Test
+    void buildActiveSourcesFilterUsesActiveSourcesWhenPresent() {
+        User owner = new User("sub", "owner@test.com", "Owner");
+        Notebook notebook = new Notebook(owner, "Notebook", null);
+        Conversation conversation = new Conversation(notebook);
+        tech.buildrun.notebooklm.entity.Source source = new tech.buildrun.notebooklm.entity.Source(
+                notebook, "doc.pdf", tech.buildrun.notebooklm.entity.SourceType.FILE, "key", null);
+        UUID sourceId = UUID.randomUUID();
+        ReflectionTestUtils.setField(source, "id", sourceId);
+        conversation.getActiveSources().add(source);
+
+        ConversationMessageService service = new ConversationMessageService(
+                conversationRepository, conversationMessageRepository, sourceRepository,
+                mock(ChatClient.class), questionAnswerAdvisor);
+
+        String filter = service.buildActiveSourcesFilter(conversation);
+
+        assertThat(filter).isEqualTo("source_id in ['" + sourceId + "']");
+    }
+
+    @Test
+    void buildActiveSourcesFilterFallsBackToReadySourcesWhenNoneActive() {
+        User owner = new User("sub", "owner@test.com", "Owner");
+        Notebook notebook = new Notebook(owner, "Notebook", null);
+        ReflectionTestUtils.setField(notebook, "id", UUID.randomUUID());
+        Conversation conversation = new Conversation(notebook);
+
+        tech.buildrun.notebooklm.entity.Source readySource = new tech.buildrun.notebooklm.entity.Source(
+                notebook, "doc.pdf", tech.buildrun.notebooklm.entity.SourceType.FILE, "key", null);
+        UUID sourceId = UUID.randomUUID();
+        ReflectionTestUtils.setField(readySource, "id", sourceId);
+        when(sourceRepository.findByNotebook_IdAndStatus(notebook.getId(), SourceStatus.READY))
+                .thenReturn(List.of(readySource));
+
+        ConversationMessageService service = new ConversationMessageService(
+                conversationRepository, conversationMessageRepository, sourceRepository,
+                mock(ChatClient.class), questionAnswerAdvisor);
+
+        String filter = service.buildActiveSourcesFilter(conversation);
+
+        assertThat(filter).isEqualTo("source_id in ['" + sourceId + "']");
+    }
+
+    @Test
+    void buildActiveSourcesFilterReturnsUnmatchableFilterWhenNoSourcesAtAll() {
+        User owner = new User("sub", "owner@test.com", "Owner");
+        Notebook notebook = new Notebook(owner, "Notebook", null);
+        ReflectionTestUtils.setField(notebook, "id", UUID.randomUUID());
+        Conversation conversation = new Conversation(notebook);
+
+        when(sourceRepository.findByNotebook_IdAndStatus(notebook.getId(), SourceStatus.READY))
+                .thenReturn(List.of());
+
+        ConversationMessageService service = new ConversationMessageService(
+                conversationRepository, conversationMessageRepository, sourceRepository,
+                mock(ChatClient.class), questionAnswerAdvisor);
+
+        String filter = service.buildActiveSourcesFilter(conversation);
+
+        assertThat(filter).isEqualTo("source_id == 'none'");
     }
 
     private ConversationMessage assignIdAndReturn(org.mockito.invocation.InvocationOnMock invocation) {
