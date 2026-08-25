@@ -2,6 +2,8 @@ package tech.buildrun.notebooklm.service;
 
 import io.awspring.cloud.s3.S3Template;
 import io.awspring.cloud.sqs.annotation.SqsListener;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.tika.TikaDocumentReader;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
@@ -26,6 +28,8 @@ import java.util.UUID;
 @ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${aws.sqs.ingestion-queue-url:}')")
 public class SourceIngestionConsumer {
 
+    private static final Logger log = LoggerFactory.getLogger(SourceIngestionConsumer.class);
+
     // ponytail: chunk sem overlap — TokenTextSplitter (Spring AI) nao suporta overlap.
     // Upgrade: splitter custom se overlap entre chunks virar necessidade real.
     private static final int CHUNK_SIZE_TOKENS = 512;
@@ -46,11 +50,16 @@ public class SourceIngestionConsumer {
         this.embeddingModel = embeddingModel;
     }
 
+    @Transactional
     @SqsListener("${aws.sqs.ingestion-queue-url}")
     public void process(IngestionMessage message) {
+        log.info("Source ingestion started: sourceId={}", message.sourceId());
         try {
             ingest(message.sourceId());
+            log.info("Source ingestion finished: sourceId={}", message.sourceId());
         } catch (Exception e) {
+            // logger.error com throwable imprime a cadeia completa de causas (root cause incluida)
+            log.error("Source ingestion failed: sourceId={}", message.sourceId(), e);
             // marca FAILED em transacao propria: a transacao de ingest() ja fez
             // rollback, entao o status so fica visivel se persistido a parte.
             markFailed(message.sourceId(), e.getMessage());
@@ -58,25 +67,28 @@ public class SourceIngestionConsumer {
         }
     }
 
-    @Transactional
     void ingest(UUID sourceId) {
-        Source source = sourceRepository.findById(sourceId).orElseThrow(SourceNotFoundException::new);
-        source.setStatus(SourceStatus.PROCESSING);
+        try {
+            Source source = sourceRepository.findById(sourceId).orElseThrow(SourceNotFoundException::new);
+            source.setStatus(SourceStatus.PROCESSING);
 
-        var resource = s3Template.download(bucketName, source.getS3Key());
-        List<Document> extracted = new TikaDocumentReader(resource).get();
-        List<Document> chunks = TokenTextSplitter.builder().withChunkSize(CHUNK_SIZE_TOKENS).build()
-                .apply(extracted);
+            var resource = s3Template.download(bucketName, source.getS3Key());
+            List<Document> extracted = new TikaDocumentReader(resource).get();
+            List<Document> chunks = TokenTextSplitter.builder().withChunkSize(CHUNK_SIZE_TOKENS).build()
+                    .apply(extracted);
 
-        List<Document> tagged = chunks.stream()
-                .map(chunk -> tagWithSourceMetadata(chunk, source))
-                .toList();
+            List<Document> tagged = chunks.stream()
+                    .map(chunk -> tagWithSourceMetadata(chunk, source))
+                    .toList();
 
-        vectorStore.add(tagged);
-        source.setStatus(SourceStatus.READY);
+            vectorStore.add(tagged);
+            source.setStatus(SourceStatus.READY);
+        } catch (Exception e) {
+            log.error("Transactional Source ingestion failed: sourceId={}", sourceId, e);
+            throw new RuntimeException(e);
+        }
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     void markFailed(UUID sourceId, String errorMessage) {
         sourceRepository.findById(sourceId).ifPresent(source -> {
             source.setStatus(SourceStatus.FAILED);

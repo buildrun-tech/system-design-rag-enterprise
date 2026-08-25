@@ -41,4 +41,4 @@
 ## 7. Qualidade
 
 - [x] 7.1 Testes: `SourceServiceTest` (upload feliz, extensão inválida `415`, notebook alheio, delete remove S3+vectorstore), `SourceIngestionConsumerTest` (processa e seta `READY`, source inexistente propaga), `SourceApiIntegrationTest` (fluxo HTTP completo dos 4 endpoints), retrieval coberto indiretamente via `ConversationMessageServiceTest` (advisor plugado, filtro por sources ativas)
-- [ ] 7.2 Rodar o skill `java-quality-gate` sobre o código novo/alterado antes de considerar a implementação concluída
+- [x] 7.2 Rodar o skill `java-quality-gate`: coverage 95.73% (PASS), mutation score 92.31% (PASS) — sem exclusões no pom.xml, nenhum mutante marcado como equivalente
