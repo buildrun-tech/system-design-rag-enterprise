@@ -54,7 +54,7 @@ class ConversationServiceTest {
         UUID foreignSourceId = UUID.randomUUID();
 
         when(notebookService.getOwnedOrThrow(any(), any())).thenReturn(notebook);
-        when(sourceRepository.findByNotebook_Id(notebookId)).thenReturn(List.of(ownSource));
+        when(sourceRepository.findByNotebookId(notebookId)).thenReturn(List.of(ownSource));
 
         assertThatThrownBy(() -> conversationService.create(
                 notebookId, UUID.randomUUID(), new ConversationCreateRequest(List.of(foreignSourceId))))

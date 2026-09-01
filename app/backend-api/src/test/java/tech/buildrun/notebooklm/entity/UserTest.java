@@ -20,6 +20,13 @@ class UserTest {
     }
 
     @Test
+    void normalizesEmailToLowercase() {
+        var user = new User("cognito-sub", "User@Test.COM", "Test User");
+
+        assertThat(user.getEmail()).isEqualTo("user@test.com");
+    }
+
+    @Test
     void exposesGeneratedIdAndCreatedAt() {
         var user = new User("cognito-sub", "user@test.com", "Test User");
         var id = UUID.randomUUID();

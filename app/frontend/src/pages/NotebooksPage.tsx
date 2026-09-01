@@ -8,7 +8,7 @@ import Modal from '../components/Modal'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Card from '../components/ui/Card'
-import { IconArrowRight, IconBook, IconPlus } from '../components/icons'
+import { IconArrowRight, IconBook, IconPlus, IconTrash } from '../components/icons'
 
 export default function NotebooksPage() {
   const { token } = useActiveAuth()
@@ -22,6 +22,22 @@ export default function NotebooksPage() {
   useEffect(() => {
     apiFetch<Page<Notebook>>('/api/v1/notebooks', token).then((page) => setNotebooks(page.content))
   }, [token])
+
+  async function handleDeleteNotebook(notebookId: string) {
+    if (!window.confirm('Apagar este notebook? Essa ação não pode ser desfeita.')) return
+    const index = notebooks.findIndex((notebook) => notebook.id === notebookId)
+    if (index === -1) return
+    const removed = notebooks[index]
+
+    setError(null)
+    setNotebooks((current) => current.filter((notebook) => notebook.id !== notebookId))
+    try {
+      await apiFetch<void>(`/api/v1/notebooks/${notebookId}`, token, { method: 'DELETE' })
+    } catch (err) {
+      setNotebooks((current) => [...current.slice(0, index), removed, ...current.slice(index)])
+      setError(err instanceof ApiError ? err.message : 'Falha ao apagar notebook')
+    }
+  }
 
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault()
@@ -58,10 +74,19 @@ export default function NotebooksPage() {
             <div className="grid-cards">
               {notebooks.map((notebook) => (
                 <Card key={notebook.id} className="notebook-card">
-                  <span className="notebook-card-name">
-                    <IconBook size={16} />
-                    {notebook.name}
-                  </span>
+                  <div className="notebook-card-header">
+                    <span className="notebook-card-name">
+                      <IconBook size={16} />
+                      {notebook.name}
+                    </span>
+                    <button
+                      className="icon-button"
+                      title="Apagar notebook"
+                      onClick={() => handleDeleteNotebook(notebook.id)}
+                    >
+                      <IconTrash size={16} />
+                    </button>
+                  </div>
                   <Button variant="secondary" onClick={() => navigate(`/notebooks/${notebook.id}`)}>
                     abrir
                     <IconArrowRight size={16} />

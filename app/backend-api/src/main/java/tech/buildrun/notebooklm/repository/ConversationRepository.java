@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public interface ConversationRepository extends JpaRepository<Conversation, UUID> {
 
-    Optional<Conversation> findByIdAndNotebook_Owner_Id(UUID id, UUID ownerId);
+    Optional<Conversation> findByIdAndNotebookOwnerId(UUID id, UUID ownerId);
 
-    List<Conversation> findByNotebook_IdAndNotebook_Owner_IdOrderByCreatedAtDesc(UUID notebookId, UUID ownerId);
+    List<Conversation> findByNotebookIdAndNotebookOwnerIdOrderByCreatedAtDesc(UUID notebookId, UUID ownerId);
 }

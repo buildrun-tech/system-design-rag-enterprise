@@ -52,7 +52,7 @@ public class SourceService {
 
     @Transactional
     public SourceResponse upload(UUID notebookId, UUID ownerId, MultipartFile file) {
-        Notebook notebook = notebookRepository.findByIdAndOwner_Id(notebookId, ownerId)
+        Notebook notebook = notebookRepository.findByIdAndOwnerId(notebookId, ownerId)
                 .orElseThrow(NotebookNotFoundException::new);
 
         String filename = file.getOriginalFilename();
@@ -76,8 +76,8 @@ public class SourceService {
     }
 
     public List<SourceResponse> listByNotebook(UUID notebookId, UUID ownerId) {
-        notebookRepository.findByIdAndOwner_Id(notebookId, ownerId).orElseThrow(NotebookNotFoundException::new);
-        return sourceRepository.findByNotebook_Id(notebookId).stream().map(SourceResponse::from).toList();
+        notebookRepository.findByIdAndOwnerId(notebookId, ownerId).orElseThrow(NotebookNotFoundException::new);
+        return sourceRepository.findByNotebookId(notebookId).stream().map(SourceResponse::from).toList();
     }
 
     public SourceResponse get(UUID notebookId, UUID sourceId, UUID ownerId) {
@@ -95,8 +95,8 @@ public class SourceService {
     }
 
     private Source getOwnedOrThrow(UUID notebookId, UUID sourceId, UUID ownerId) {
-        notebookRepository.findByIdAndOwner_Id(notebookId, ownerId).orElseThrow(NotebookNotFoundException::new);
-        return sourceRepository.findByIdAndNotebook_Id(sourceId, notebookId).orElseThrow(SourceNotFoundException::new);
+        notebookRepository.findByIdAndOwnerId(notebookId, ownerId).orElseThrow(NotebookNotFoundException::new);
+        return sourceRepository.findByIdAndNotebookId(sourceId, notebookId).orElseThrow(SourceNotFoundException::new);
     }
 
     private static String extensionOf(String filename) {

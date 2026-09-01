@@ -12,6 +12,7 @@ import tech.buildrun.notebooklm.repository.UserRepository;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -61,5 +62,16 @@ class UserUpsertServiceTest {
 
         assertThat(result).isSameAs(winner);
         verify(userRepository, times(2)).findByCognitoSub("sub-3");
+    }
+
+    @Test
+    void propagatesExceptionWhenEmailBelongsToAnotherCognitoSub() {
+        DataIntegrityViolationException emailConflict = new DataIntegrityViolationException("duplicate email");
+        when(userRepository.findByCognitoSub("sub-4")).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenThrow(emailConflict);
+
+        assertThatThrownBy(() -> userUpsertService.resolve("sub-4", "taken@test.com", "D"))
+                .isSameAs(emailConflict);
+        verify(userRepository, times(2)).findByCognitoSub("sub-4");
     }
 }

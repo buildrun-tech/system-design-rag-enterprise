@@ -10,9 +10,9 @@ import java.util.UUID;
 
 public interface SourceRepository extends JpaRepository<Source, UUID> {
 
-    List<Source> findByNotebook_Id(UUID notebookId);
+    List<Source> findByNotebookId(UUID notebookId);
 
-    List<Source> findByNotebook_IdAndStatus(UUID notebookId, SourceStatus status);
+    List<Source> findByNotebookIdAndStatus(UUID notebookId, SourceStatus status);
 
-    Optional<Source> findByIdAndNotebook_Id(UUID id, UUID notebookId);
+    Optional<Source> findByIdAndNotebookId(UUID id, UUID notebookId);
 }
