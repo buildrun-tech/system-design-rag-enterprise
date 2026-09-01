@@ -17,7 +17,7 @@ public interface ConversationMessageRepository extends JpaRepository<Conversatio
     List<ConversationMessage> findAllByConversationIdAndOwnerId(@Param("conversationId") UUID conversationId,
                                                                  @Param("ownerId") UUID ownerId);
 
-    Optional<ConversationMessage> findFirstByConversation_IdOrderByCreatedAtAsc(UUID conversationId);
+    Optional<ConversationMessage> findFirstByConversationIdOrderByCreatedAtAsc(UUID conversationId);
 
-    List<ConversationMessage> findTop10ByConversation_IdOrderByCreatedAtDesc(UUID conversationId);
+    List<ConversationMessage> findTop10ByConversationIdOrderByCreatedAtDesc(UUID conversationId);
 }

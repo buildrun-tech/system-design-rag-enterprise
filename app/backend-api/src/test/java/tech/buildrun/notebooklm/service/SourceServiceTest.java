@@ -61,7 +61,7 @@ class SourceServiceTest {
         UUID notebookId = UUID.randomUUID();
         UUID ownerId = UUID.randomUUID();
 
-        when(notebookRepository.findByIdAndOwner_Id(notebookId, ownerId)).thenReturn(Optional.of(notebook));
+        when(notebookRepository.findByIdAndOwnerId(notebookId, ownerId)).thenReturn(Optional.of(notebook));
         when(sourceRepository.saveAndFlush(any(Source.class))).thenAnswer(invocation -> {
             Source source = invocation.getArgument(0);
             ReflectionTestUtils.setField(source, "id", UUID.randomUUID());
@@ -91,7 +91,7 @@ class SourceServiceTest {
         UUID notebookId = UUID.randomUUID();
         UUID ownerId = UUID.randomUUID();
 
-        when(notebookRepository.findByIdAndOwner_Id(notebookId, ownerId)).thenReturn(Optional.of(notebook));
+        when(notebookRepository.findByIdAndOwnerId(notebookId, ownerId)).thenReturn(Optional.of(notebook));
         when(sourceRepository.saveAndFlush(any(Source.class))).thenAnswer(invocation -> {
             Source source = invocation.getArgument(0);
             ReflectionTestUtils.setField(source, "id", UUID.randomUUID());
@@ -113,7 +113,7 @@ class SourceServiceTest {
         UUID notebookId = UUID.randomUUID();
         UUID ownerId = UUID.randomUUID();
 
-        when(notebookRepository.findByIdAndOwner_Id(notebookId, ownerId)).thenReturn(Optional.of(notebook));
+        when(notebookRepository.findByIdAndOwnerId(notebookId, ownerId)).thenReturn(Optional.of(notebook));
 
         MockMultipartFile file = new MockMultipartFile("file", "sheet.xlsx", "application/vnd.ms-excel", "content".getBytes());
 
@@ -128,7 +128,7 @@ class SourceServiceTest {
     void uploadToNotebookOfAnotherOwnerThrows() {
         UUID notebookId = UUID.randomUUID();
         UUID ownerId = UUID.randomUUID();
-        when(notebookRepository.findByIdAndOwner_Id(notebookId, ownerId)).thenReturn(Optional.empty());
+        when(notebookRepository.findByIdAndOwnerId(notebookId, ownerId)).thenReturn(Optional.empty());
 
         MockMultipartFile file = new MockMultipartFile("file", "doc.pdf", "application/pdf", "content".getBytes());
 
@@ -146,8 +146,8 @@ class SourceServiceTest {
         Source source = new Source(notebook, "doc.pdf", SourceType.FILE, "some/key", null);
         ReflectionTestUtils.setField(source, "id", sourceId);
 
-        when(notebookRepository.findByIdAndOwner_Id(notebookId, ownerId)).thenReturn(Optional.of(notebook));
-        when(sourceRepository.findByIdAndNotebook_Id(sourceId, notebookId)).thenReturn(Optional.of(source));
+        when(notebookRepository.findByIdAndOwnerId(notebookId, ownerId)).thenReturn(Optional.of(notebook));
+        when(sourceRepository.findByIdAndNotebookId(sourceId, notebookId)).thenReturn(Optional.of(source));
 
         newService().delete(notebookId, sourceId, ownerId);
 
@@ -163,8 +163,8 @@ class SourceServiceTest {
         UUID ownerId = UUID.randomUUID();
         UUID sourceId = UUID.randomUUID();
 
-        when(notebookRepository.findByIdAndOwner_Id(notebookId, ownerId)).thenReturn(Optional.of(notebook));
-        when(sourceRepository.findByIdAndNotebook_Id(sourceId, notebookId)).thenReturn(Optional.empty());
+        when(notebookRepository.findByIdAndOwnerId(notebookId, ownerId)).thenReturn(Optional.of(notebook));
+        when(sourceRepository.findByIdAndNotebookId(sourceId, notebookId)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> newService().delete(notebookId, sourceId, ownerId))
                 .isInstanceOf(SourceNotFoundException.class);

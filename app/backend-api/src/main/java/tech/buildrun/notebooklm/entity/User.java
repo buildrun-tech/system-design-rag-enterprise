@@ -21,7 +21,7 @@ public class User {
     @Column(name = "cognito_sub", nullable = false, unique = true)
     private String cognitoSub;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String email;
 
     @Column(nullable = false)
@@ -36,7 +36,7 @@ public class User {
 
     public User(String cognitoSub, String email, String name) {
         this.cognitoSub = cognitoSub;
-        this.email = email;
+        this.email = email.toLowerCase();
         this.name = name;
     }
 

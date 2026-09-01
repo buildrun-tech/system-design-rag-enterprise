@@ -81,6 +81,14 @@ export function IconArrowRight({ size }: IconProps) {
   )
 }
 
+export function IconArrowLeft({ size }: IconProps) {
+  return (
+    <svg {...base(size)}>
+      <path d="M19 12H5M11 18l-6-6 6-6" />
+    </svg>
+  )
+}
+
 export function IconUpload({ size }: IconProps) {
   return (
     <svg {...base(size)}>

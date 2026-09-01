@@ -54,7 +54,7 @@ public class ConversationMessageService {
     }
 
     public List<ConversationMessageResponse> listByConversation(UUID conversationId, UUID ownerId) {
-        conversationRepository.findByIdAndNotebook_Owner_Id(conversationId, ownerId)
+        conversationRepository.findByIdAndNotebookOwnerId(conversationId, ownerId)
                 .orElseThrow(ConversationNotFoundException::new);
         return conversationMessageRepository.findAllByConversationIdAndOwnerId(conversationId, ownerId).stream()
                 .map(ConversationMessageResponse::from)
@@ -62,7 +62,7 @@ public class ConversationMessageService {
     }
 
     public void sendMessage(UUID conversationId, UUID ownerId, String content, SseEmitter emitter) {
-        Conversation conversation = conversationRepository.findByIdAndNotebook_Owner_Id(conversationId, ownerId)
+        Conversation conversation = conversationRepository.findByIdAndNotebookOwnerId(conversationId, ownerId)
                 .orElseThrow(ConversationNotFoundException::new);
 
         List<Message> promptMessages = buildPromptMessages(conversationId, content);
@@ -89,7 +89,7 @@ public class ConversationMessageService {
     String buildActiveSourcesFilter(Conversation conversation) {
         Set<Source> activeSources = conversation.getActiveSources();
         List<UUID> sourceIds = activeSources.isEmpty()
-                ? sourceRepository.findByNotebook_IdAndStatus(conversation.getNotebook().getId(), SourceStatus.READY)
+                ? sourceRepository.findByNotebookIdAndStatus(conversation.getNotebook().getId(), SourceStatus.READY)
                         .stream().map(Source::getId).toList()
                 : activeSources.stream().map(Source::getId).toList();
 
@@ -103,7 +103,7 @@ public class ConversationMessageService {
     private List<Message> buildPromptMessages(UUID conversationId, String newUserContent) {
 
         List<ConversationMessage> history = conversationMessageRepository
-                .findTop10ByConversation_IdOrderByCreatedAtDesc(conversationId);
+                .findTop10ByConversationIdOrderByCreatedAtDesc(conversationId);
         Collections.reverse(history);
 
         List<Message> promptMessages = new ArrayList<>();

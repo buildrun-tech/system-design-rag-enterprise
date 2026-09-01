@@ -36,12 +36,12 @@ public class NotebookService {
     }
 
     public Page<NotebookResponse> listByOwner(UUID ownerId, Pageable pageable) {
-        return notebookRepository.findByOwner_Id(ownerId, pageable).map(NotebookResponse::from);
+        return notebookRepository.findByOwnerId(ownerId, pageable).map(NotebookResponse::from);
     }
 
     public NotebookDetailResponse getDetailOrThrow(UUID notebookId, UUID ownerId) {
         Notebook notebook = getOwnedOrThrow(notebookId, ownerId);
-        List<SourceResponse> sources = sourceRepository.findByNotebook_Id(notebookId).stream()
+        List<SourceResponse> sources = sourceRepository.findByNotebookId(notebookId).stream()
                 .map(SourceResponse::from)
                 .toList();
         return NotebookDetailResponse.from(notebook, sources);
@@ -66,7 +66,7 @@ public class NotebookService {
     }
 
     Notebook getOwnedOrThrow(UUID notebookId, UUID ownerId) {
-        return notebookRepository.findByIdAndOwner_Id(notebookId, ownerId)
+        return notebookRepository.findByIdAndOwnerId(notebookId, ownerId)
                 .orElseThrow(NotebookNotFoundException::new);
     }
 }

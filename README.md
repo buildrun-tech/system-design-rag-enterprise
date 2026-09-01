@@ -69,8 +69,8 @@ Pré-requisitos: `docker` e `aws cli` instalados.
 
 ```bash
 # sobe Postgres + pgvector + floci (emulador Cognito local) e provisiona
-# user pool, client e usuário admin/123 — grava os IDs em app/backend-api/.env
-./app/backend-api/local/start_local.sh
+# user pool, client e usuário admin/123 — grava os IDs em app/backend-api/.env e app/frontend/.env
+./app/local/start_local.sh
 
 # roda a aplicação
 cd app/backend-api

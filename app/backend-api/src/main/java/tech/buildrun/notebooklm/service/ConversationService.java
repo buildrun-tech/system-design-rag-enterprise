@@ -54,7 +54,7 @@ public class ConversationService {
 
     public List<ConversationResponse> listByNotebook(UUID notebookId, UUID ownerId) {
         notebookService.getOwnedOrThrow(notebookId, ownerId);
-        return conversationRepository.findByNotebook_IdAndNotebook_Owner_IdOrderByCreatedAtDesc(notebookId, ownerId)
+        return conversationRepository.findByNotebookIdAndNotebookOwnerIdOrderByCreatedAtDesc(notebookId, ownerId)
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -62,10 +62,10 @@ public class ConversationService {
 
     private Set<Source> resolveActiveSources(Notebook notebook, List<UUID> requestedSourceIds) {
         if (requestedSourceIds == null || requestedSourceIds.isEmpty()) {
-            return Set.copyOf(sourceRepository.findByNotebook_IdAndStatus(notebook.getId(), SourceStatus.READY));
+            return Set.copyOf(sourceRepository.findByNotebookIdAndStatus(notebook.getId(), SourceStatus.READY));
         }
 
-        List<Source> notebookSources = sourceRepository.findByNotebook_Id(notebook.getId());
+        List<Source> notebookSources = sourceRepository.findByNotebookId(notebook.getId());
         Set<UUID> notebookSourceIds = notebookSources.stream().map(Source::getId).collect(Collectors.toSet());
         if (!notebookSourceIds.containsAll(requestedSourceIds)) {
             throw new InvalidSourceIdsException();
@@ -78,7 +78,7 @@ public class ConversationService {
     }
 
     private ConversationResponse toResponse(Conversation conversation) {
-        String preview = conversationMessageRepository.findFirstByConversation_IdOrderByCreatedAtAsc(conversation.getId())
+        String preview = conversationMessageRepository.findFirstByConversationIdOrderByCreatedAtAsc(conversation.getId())
                 .map(ConversationMessage::getContent)
                 .map(this::truncate)
                 .orElse(null);

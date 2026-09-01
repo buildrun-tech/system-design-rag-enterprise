@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useActiveAuth } from '../auth/useActiveAuth'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { apiFetch } from '../api/client'
 import type { Conversation, ConversationMessage, Source } from '../api/types'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 
 interface NotebookDetail {
   sources: Source[]
@@ -13,7 +15,7 @@ import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Card from '../components/ui/Card'
 import { ApiError } from '../api/client'
-import { IconFile, IconSend, IconSpinner, IconTrash, IconUpload } from '../components/icons'
+import { IconArrowLeft, IconFile, IconPlus, IconSend, IconSpinner, IconTrash, IconUpload } from '../components/icons'
 
 const PENDING_STATUSES = new Set(['PENDING', 'PROCESSING'])
 
@@ -27,10 +29,12 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 export default function WorkspacePage() {
   const { notebookId } = useParams<{ notebookId: string }>()
   const { token } = useActiveAuth()
+  const navigate = useNavigate()
 
   const [sources, setSources] = useState<Source[]>([])
   const [sourceError, setSourceError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [conversations, setConversations] = useState<Conversation[]>([])
   const [conversation, setConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
@@ -93,11 +97,12 @@ export default function WorkspacePage() {
   useEffect(() => {
     if (!notebookId || !token) return
     ;(async () => {
-      const conversations = await apiFetch<Conversation[]>(`/api/v1/notebooks/${notebookId}/conversations`, token)
-      const active = conversations[0] ?? (await apiFetch<Conversation>(`/api/v1/notebooks/${notebookId}/conversations`, token, {
+      const list = await apiFetch<Conversation[]>(`/api/v1/notebooks/${notebookId}/conversations`, token)
+      const active = list[0] ?? (await apiFetch<Conversation>(`/api/v1/notebooks/${notebookId}/conversations`, token, {
         method: 'POST',
         body: JSON.stringify({}),
       }))
+      setConversations(list[0] ? list : [active])
       setConversation(active)
       const history = await apiFetch<ConversationMessage[]>(`/api/v1/conversations/${active.id}/messages`, token)
       setMessages(history)
@@ -105,6 +110,26 @@ export default function WorkspacePage() {
   }, [notebookId, token])
 
   useEffect(() => () => abortRef.current?.abort(), [])
+
+  async function handleSwitchConversation(target: Conversation) {
+    if (!token || target.id === conversation?.id) return
+    abortRef.current?.abort()
+    setConversation(target)
+    const history = await apiFetch<ConversationMessage[]>(`/api/v1/conversations/${target.id}/messages`, token)
+    setMessages(history)
+  }
+
+  async function handleNewChat() {
+    if (!notebookId || !token) return
+    abortRef.current?.abort()
+    const created = await apiFetch<Conversation>(`/api/v1/notebooks/${notebookId}/conversations`, token, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+    setConversations((current) => [created, ...current])
+    setConversation(created)
+    setMessages([])
+  }
 
   async function handleSend(event: React.FormEvent) {
     event.preventDefault()
@@ -167,7 +192,11 @@ export default function WorkspacePage() {
 
   return (
     <div className="page">
-      <Navbar title="NotebookLM" />
+      <Navbar title="NotebookLM">
+        <button className="icon-button" title="Voltar" onClick={() => navigate('/notebooks')}>
+          <IconArrowLeft size={16} />
+        </button>
+      </Navbar>
 
       <div className="page-body workspace-grid">
         <Card className="section sources-panel">
@@ -200,13 +229,39 @@ export default function WorkspacePage() {
         </Card>
 
         <Card className="chat-panel">
-          <h2 className="section-title">Chat</h2>
+          <div className="section-header">
+            <h2 className="section-title">Chat</h2>
+            <div className="toolbar">
+              {conversations.length > 1 && (
+                <select
+                  className="conversation-select"
+                  value={conversation?.id ?? ''}
+                  onChange={(event) => {
+                    const target = conversations.find((item) => item.id === event.target.value)
+                    if (target) handleSwitchConversation(target)
+                  }}
+                >
+                  {conversations.map((item, index) => (
+                    <option key={item.id} value={item.id}>
+                      {item.preview || `Conversa ${conversations.length - index}`}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <button className="icon-button" title="Novo chat" onClick={handleNewChat}>
+                <IconPlus size={16} />
+              </button>
+            </div>
+          </div>
           <div className="chat-messages">
             {messages.map((message) => (
               <div key={message.id} className={`message-bubble message-bubble--${message.role}`}>
                 <span className="message-role">{message.role === 'user' ? 'Você' : 'Assistente'}</span>
-                {message.content}
-                {message.streaming ? '…' : ''}
+                {message.streaming && message.content === '' ? (
+                  <IconSpinner size={16} />
+                ) : (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+                )}
                 {message.failed ? ' (falha no envio, tente novamente)' : ''}
               </div>
             ))}

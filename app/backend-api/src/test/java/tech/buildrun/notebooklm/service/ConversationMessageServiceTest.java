@@ -70,7 +70,7 @@ class ConversationMessageServiceTest {
     void setUp() {
         when(vectorStore.similaritySearch(any(org.springframework.ai.vectorstore.SearchRequest.class)))
                 .thenReturn(List.of());
-        when(sourceRepository.findByNotebook_IdAndStatus(any(UUID.class), any(SourceStatus.class)))
+        when(sourceRepository.findByNotebookIdAndStatus(any(UUID.class), any(SourceStatus.class)))
                 .thenReturn(List.of());
         questionAnswerAdvisor = QuestionAnswerAdvisor.builder(vectorStore).build();
     }
@@ -87,9 +87,9 @@ class ConversationMessageServiceTest {
         ConversationMessage previousUserMessage = new ConversationMessage(conversation, MessageRole.user, "previous question");
         ConversationMessage previousAssistantMessage = new ConversationMessage(conversation, MessageRole.assistant, "previous answer");
 
-        when(conversationRepository.findByIdAndNotebook_Owner_Id(conversationId, ownerId))
+        when(conversationRepository.findByIdAndNotebookOwnerId(conversationId, ownerId))
                 .thenReturn(Optional.of(conversation));
-        when(conversationMessageRepository.findTop10ByConversation_IdOrderByCreatedAtDesc(conversationId))
+        when(conversationMessageRepository.findTop10ByConversationIdOrderByCreatedAtDesc(conversationId))
                 .thenReturn(new ArrayList<>(List.of(previousAssistantMessage, previousUserMessage)));
         when(conversationMessageRepository.save(any(ConversationMessage.class)))
                 .thenAnswer(this::assignIdAndReturn);
@@ -136,7 +136,7 @@ class ConversationMessageServiceTest {
     void sendMessageThrowsWhenConversationNotOwnedByUser() {
         UUID conversationId = UUID.randomUUID();
         UUID ownerId = UUID.randomUUID();
-        when(conversationRepository.findByIdAndNotebook_Owner_Id(conversationId, ownerId))
+        when(conversationRepository.findByIdAndNotebookOwnerId(conversationId, ownerId))
                 .thenReturn(Optional.empty());
 
         ConversationMessageService service = new ConversationMessageService(
@@ -158,9 +158,9 @@ class ConversationMessageServiceTest {
         UUID ownerId = UUID.randomUUID();
         ReflectionTestUtils.setField(conversation, "id", conversationId);
 
-        when(conversationRepository.findByIdAndNotebook_Owner_Id(conversationId, ownerId))
+        when(conversationRepository.findByIdAndNotebookOwnerId(conversationId, ownerId))
                 .thenReturn(Optional.of(conversation));
-        when(conversationMessageRepository.findTop10ByConversation_IdOrderByCreatedAtDesc(conversationId))
+        when(conversationMessageRepository.findTop10ByConversationIdOrderByCreatedAtDesc(conversationId))
                 .thenReturn(new ArrayList<>());
         when(conversationMessageRepository.save(any(ConversationMessage.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -192,9 +192,9 @@ class ConversationMessageServiceTest {
         UUID ownerId = UUID.randomUUID();
         ReflectionTestUtils.setField(conversation, "id", conversationId);
 
-        when(conversationRepository.findByIdAndNotebook_Owner_Id(conversationId, ownerId))
+        when(conversationRepository.findByIdAndNotebookOwnerId(conversationId, ownerId))
                 .thenReturn(Optional.of(conversation));
-        when(conversationMessageRepository.findTop10ByConversation_IdOrderByCreatedAtDesc(conversationId))
+        when(conversationMessageRepository.findTop10ByConversationIdOrderByCreatedAtDesc(conversationId))
                 .thenReturn(new ArrayList<>());
         when(conversationMessageRepository.save(any(ConversationMessage.class)))
                 .thenAnswer(this::assignIdAndReturn);
@@ -246,7 +246,7 @@ class ConversationMessageServiceTest {
                 notebook, "doc.pdf", tech.buildrun.notebooklm.entity.SourceType.FILE, "key", null);
         UUID sourceId = UUID.randomUUID();
         ReflectionTestUtils.setField(readySource, "id", sourceId);
-        when(sourceRepository.findByNotebook_IdAndStatus(notebook.getId(), SourceStatus.READY))
+        when(sourceRepository.findByNotebookIdAndStatus(notebook.getId(), SourceStatus.READY))
                 .thenReturn(List.of(readySource));
 
         ConversationMessageService service = new ConversationMessageService(
@@ -265,7 +265,7 @@ class ConversationMessageServiceTest {
         ReflectionTestUtils.setField(notebook, "id", UUID.randomUUID());
         Conversation conversation = new Conversation(notebook);
 
-        when(sourceRepository.findByNotebook_IdAndStatus(notebook.getId(), SourceStatus.READY))
+        when(sourceRepository.findByNotebookIdAndStatus(notebook.getId(), SourceStatus.READY))
                 .thenReturn(List.of());
 
         ConversationMessageService service = new ConversationMessageService(
