@@ -2,6 +2,8 @@ package tech.buildrun.notebooklm.service;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -9,7 +11,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
@@ -18,10 +19,13 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
+import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
 import tech.buildrun.notebooklm.entity.Conversation;
 import tech.buildrun.notebooklm.entity.ConversationMessage;
 import tech.buildrun.notebooklm.entity.MessageRole;
@@ -37,6 +41,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -64,7 +71,8 @@ class ConversationMessageServiceTest {
     @Mock
     private VectorStore vectorStore;
 
-    private QuestionAnswerAdvisor questionAnswerAdvisor;
+    private RetrievalAugmentationAdvisor retrievalAugmentationAdvisor;
+    private ConversationHistoryProvider conversationHistoryProvider;
 
     @BeforeEach
     void setUp() {
@@ -72,7 +80,13 @@ class ConversationMessageServiceTest {
                 .thenReturn(List.of());
         when(sourceRepository.findByNotebookIdAndStatus(any(UUID.class), any(SourceStatus.class)))
                 .thenReturn(List.of());
-        questionAnswerAdvisor = QuestionAnswerAdvisor.builder(vectorStore).build();
+        retrievalAugmentationAdvisor = RetrievalAugmentationAdvisor.builder()
+                .documentRetriever(VectorStoreDocumentRetriever.builder().vectorStore(vectorStore).build())
+                .queryAugmenter(org.springframework.ai.rag.generation.augmentation.ContextualQueryAugmenter.builder()
+                        .allowEmptyContext(true)
+                        .build())
+                .build();
+        conversationHistoryProvider = new ConversationHistoryProvider(conversationMessageRepository);
     }
 
     @Test
@@ -99,7 +113,8 @@ class ConversationMessageServiceTest {
         ChatClient chatClient = ChatClient.create(fakeChatModel);
 
         ConversationMessageService service = new ConversationMessageService(
-                conversationRepository, conversationMessageRepository, sourceRepository, chatClient, questionAnswerAdvisor);
+                conversationRepository, conversationMessageRepository, sourceRepository, chatClient,
+                retrievalAugmentationAdvisor, conversationHistoryProvider);
 
         SseEmitter emitter = mock(SseEmitter.class);
 
@@ -115,8 +130,9 @@ class ConversationMessageServiceTest {
         assertThat(promptMessages.get(2).getMessageType()).isEqualTo(MessageType.ASSISTANT);
         assertThat(promptMessages.get(2).getText()).isEqualTo("previous answer");
         assertThat(promptMessages.get(3).getMessageType()).isEqualTo(MessageType.USER);
-        // QuestionAnswerAdvisor envolve o texto original num template de contexto RAG
-        assertThat(promptMessages.get(3).getText()).contains("new question");
+        // sem query transformers configurados no teste e sem chunks (vectorStore mockado vazio),
+        // allowEmptyContext(true) mantém a query original sem alteração
+        assertThat(promptMessages.get(3).getText()).isEqualTo("new question");
 
         verify(emitter, org.mockito.Mockito.times(3)).send(any(SseEmitter.SseEventBuilder.class));
 
@@ -141,7 +157,7 @@ class ConversationMessageServiceTest {
 
         ConversationMessageService service = new ConversationMessageService(
                 conversationRepository, conversationMessageRepository, sourceRepository,
-                mock(ChatClient.class), questionAnswerAdvisor);
+                mock(ChatClient.class), retrievalAugmentationAdvisor, conversationHistoryProvider);
 
         assertThatThrownBy(() -> service.sendMessage(conversationId, ownerId, "hi", new SseEmitter()))
                 .isInstanceOf(ConversationNotFoundException.class);
@@ -172,7 +188,8 @@ class ConversationMessageServiceTest {
         ChatClient chatClient = ChatClient.create(failingChatModel);
 
         ConversationMessageService service = new ConversationMessageService(
-                conversationRepository, conversationMessageRepository, sourceRepository, chatClient, questionAnswerAdvisor);
+                conversationRepository, conversationMessageRepository, sourceRepository, chatClient,
+                retrievalAugmentationAdvisor, conversationHistoryProvider);
 
         SseEmitter emitter = mock(SseEmitter.class);
 
@@ -204,7 +221,8 @@ class ConversationMessageServiceTest {
         ChatClient chatClient = ChatClient.create(fakeChatModel);
 
         ConversationMessageService service = new ConversationMessageService(
-                conversationRepository, conversationMessageRepository, sourceRepository, chatClient, questionAnswerAdvisor);
+                conversationRepository, conversationMessageRepository, sourceRepository, chatClient,
+                retrievalAugmentationAdvisor, conversationHistoryProvider);
 
         SseEmitter emitter = mock(SseEmitter.class);
         org.mockito.Mockito.doThrow(new java.io.IOException("broken pipe"))
@@ -228,11 +246,111 @@ class ConversationMessageServiceTest {
 
         ConversationMessageService service = new ConversationMessageService(
                 conversationRepository, conversationMessageRepository, sourceRepository,
-                mock(ChatClient.class), questionAnswerAdvisor);
+                mock(ChatClient.class), retrievalAugmentationAdvisor, conversationHistoryProvider);
 
         String filter = service.buildActiveSourcesFilter(conversation);
 
         assertThat(filter).isEqualTo("source_id in ['" + sourceId + "']");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"completion", "timeout", "error"})
+    void emitterTerminationCancelsGenerationWithoutSavingPartialResponse(String termination) throws Exception {
+        Sinks.Many<ChatResponse> tokens = Sinks.many().unicast().onBackpressureBuffer();
+        CountDownLatch subscribed = new CountDownLatch(1);
+        CountDownLatch cancelled = new CountDownLatch(1);
+        SseEmitter emitter = mock(SseEmitter.class);
+        startStream(tokens.asFlux().doOnSubscribe(s -> subscribed.countDown()).doOnCancel(cancelled::countDown), emitter);
+        assertThat(subscribed.await(5, TimeUnit.SECONDS)).isTrue();
+
+        if (termination.equals("error")) {
+            ArgumentCaptor<Consumer<Throwable>> callback = ArgumentCaptor.forClass(Consumer.class);
+            verify(emitter).onError(callback.capture());
+            callback.getValue().accept(new java.io.IOException("client disconnected"));
+        } else {
+            ArgumentCaptor<Runnable> callback = ArgumentCaptor.forClass(Runnable.class);
+            if (termination.equals("timeout")) {
+                verify(emitter).onTimeout(callback.capture());
+            } else {
+                verify(emitter).onCompletion(callback.capture());
+            }
+            callback.getValue().run();
+        }
+
+        assertThat(cancelled.await(5, TimeUnit.SECONDS)).isTrue();
+        verify(emitter, never()).send(any(SseEmitter.SseEventBuilder.class));
+        verify(conversationMessageRepository, org.mockito.Mockito.times(1)).save(any());
+        if (termination.equals("timeout")) verify(emitter).complete();
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void failedTokenWriteCancelsGenerationWithoutTryingToSendAnError(boolean alreadyCompleted) throws Exception {
+        Sinks.Many<ChatResponse> tokens = Sinks.many().unicast().onBackpressureBuffer();
+        CountDownLatch subscribed = new CountDownLatch(1);
+        CountDownLatch cancelled = new CountDownLatch(1);
+        SseEmitter emitter = mock(SseEmitter.class);
+        Exception failure = alreadyCompleted
+                ? new IllegalStateException("ResponseBodyEmitter has already completed")
+                : new java.io.IOException("broken pipe");
+        org.mockito.Mockito.doThrow(failure).when(emitter).send(any(SseEmitter.SseEventBuilder.class));
+        startStream(tokens.asFlux().doOnSubscribe(s -> subscribed.countDown()).doOnCancel(cancelled::countDown), emitter);
+        assertThat(subscribed.await(5, TimeUnit.SECONDS)).isTrue();
+
+        tokens.tryEmitNext(new ChatResponse(List.of(new Generation(new AssistantMessage("partial")))));
+
+        assertThat(cancelled.await(5, TimeUnit.SECONDS)).isTrue();
+        verify(emitter, timeout(5000)).completeWithError(failure);
+        verify(emitter, org.mockito.Mockito.times(1)).send(any(SseEmitter.SseEventBuilder.class));
+        verify(conversationMessageRepository, org.mockito.Mockito.times(1)).save(any());
+    }
+
+    @Test
+    void errorNotificationRacingWithCompletionPreservesOriginalFailure() throws Exception {
+        SseEmitter emitter = mock(SseEmitter.class);
+        org.mockito.Mockito.doThrow(new IllegalStateException("ResponseBodyEmitter has already completed"))
+                .when(emitter).send(any(SseEmitter.SseEventBuilder.class));
+        RuntimeException providerError = new RuntimeException("provider failed");
+
+        startStream(Flux.error(providerError), emitter);
+
+        ArgumentCaptor<Throwable> failure = ArgumentCaptor.forClass(Throwable.class);
+        verify(emitter, timeout(5000)).completeWithError(failure.capture());
+        assertThat(failure.getValue()).hasRootCause(providerError);
+        verify(conversationMessageRepository, org.mockito.Mockito.times(1)).save(any());
+    }
+
+    @Test
+    void completionBeforeSubscriptionAssignmentStillCancelsGeneration() throws Exception {
+        SseEmitter emitter = mock(SseEmitter.class);
+        org.mockito.Mockito.doAnswer(invocation -> {
+            invocation.<Runnable>getArgument(0).run();
+            return null;
+        }).when(emitter).onCompletion(any());
+
+        startStream(Flux.just(new ChatResponse(List.of(new Generation(new AssistantMessage("late token"))))), emitter);
+
+        verify(emitter, never()).send(any(SseEmitter.SseEventBuilder.class));
+        verify(conversationMessageRepository, org.mockito.Mockito.times(1)).save(any());
+    }
+
+    private void startStream(Flux<ChatResponse> responses, SseEmitter emitter) {
+        User owner = new User("sub", "owner@test.com", "Owner");
+        Conversation conversation = new Conversation(new Notebook(owner, "Notebook", null));
+        UUID conversationId = UUID.randomUUID();
+        UUID ownerId = UUID.randomUUID();
+        ReflectionTestUtils.setField(conversation, "id", conversationId);
+        when(conversationRepository.findByIdAndNotebookOwnerId(conversationId, ownerId))
+                .thenReturn(Optional.of(conversation));
+        when(conversationMessageRepository.findTop10ByConversationIdOrderByCreatedAtDesc(conversationId))
+                .thenReturn(new ArrayList<>());
+        when(conversationMessageRepository.save(any(ConversationMessage.class))).thenAnswer(this::assignIdAndReturn);
+        ChatModel model = mock(ChatModel.class);
+        when(model.getOptions()).thenReturn(ChatOptions.builder().build());
+        when(model.stream(any(Prompt.class))).thenReturn(responses);
+        new ConversationMessageService(conversationRepository, conversationMessageRepository, sourceRepository,
+                ChatClient.create(model), retrievalAugmentationAdvisor, conversationHistoryProvider)
+                .sendMessage(conversationId, ownerId, "hi", emitter);
     }
 
     @Test
@@ -251,7 +369,7 @@ class ConversationMessageServiceTest {
 
         ConversationMessageService service = new ConversationMessageService(
                 conversationRepository, conversationMessageRepository, sourceRepository,
-                mock(ChatClient.class), questionAnswerAdvisor);
+                mock(ChatClient.class), retrievalAugmentationAdvisor, conversationHistoryProvider);
 
         String filter = service.buildActiveSourcesFilter(conversation);
 
@@ -270,7 +388,7 @@ class ConversationMessageServiceTest {
 
         ConversationMessageService service = new ConversationMessageService(
                 conversationRepository, conversationMessageRepository, sourceRepository,
-                mock(ChatClient.class), questionAnswerAdvisor);
+                mock(ChatClient.class), retrievalAugmentationAdvisor, conversationHistoryProvider);
 
         String filter = service.buildActiveSourcesFilter(conversation);
 

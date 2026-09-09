@@ -1,13 +1,13 @@
 package tech.buildrun.notebooklm.service;
 
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
-import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
-import org.springframework.ai.chat.messages.SystemMessage;
-import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
+import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import reactor.core.Disposable;
+import reactor.core.Disposables;
 import reactor.core.scheduler.Schedulers;
 import tech.buildrun.notebooklm.dto.ConversationMessageResponse;
 import tech.buildrun.notebooklm.entity.Conversation;
@@ -21,12 +21,11 @@ import tech.buildrun.notebooklm.repository.ConversationRepository;
 import tech.buildrun.notebooklm.repository.SourceRepository;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @Service
@@ -39,18 +38,21 @@ public class ConversationMessageService {
     private final ConversationMessageRepository conversationMessageRepository;
     private final SourceRepository sourceRepository;
     private final ChatClient chatClient;
-    private final QuestionAnswerAdvisor questionAnswerAdvisor;
+    private final RetrievalAugmentationAdvisor retrievalAugmentationAdvisor;
+    private final ConversationHistoryProvider conversationHistoryProvider;
 
     public ConversationMessageService(ConversationRepository conversationRepository,
                                        ConversationMessageRepository conversationMessageRepository,
                                        SourceRepository sourceRepository,
                                        ChatClient chatClient,
-                                       QuestionAnswerAdvisor questionAnswerAdvisor) {
+                                       RetrievalAugmentationAdvisor retrievalAugmentationAdvisor,
+                                       ConversationHistoryProvider conversationHistoryProvider) {
         this.conversationRepository = conversationRepository;
         this.conversationMessageRepository = conversationMessageRepository;
         this.sourceRepository = sourceRepository;
         this.chatClient = chatClient;
-        this.questionAnswerAdvisor = questionAnswerAdvisor;
+        this.retrievalAugmentationAdvisor = retrievalAugmentationAdvisor;
+        this.conversationHistoryProvider = conversationHistoryProvider;
     }
 
     public List<ConversationMessageResponse> listByConversation(UUID conversationId, UUID ownerId) {
@@ -65,25 +67,31 @@ public class ConversationMessageService {
         Conversation conversation = conversationRepository.findByIdAndNotebookOwnerId(conversationId, ownerId)
                 .orElseThrow(ConversationNotFoundException::new);
 
-        List<Message> promptMessages = buildPromptMessages(conversationId, content);
+        List<Message> promptMessages = conversationHistoryProvider.buildPromptMessages(conversationId, SYSTEM_PROMPT, content);
         String filterExpression = buildActiveSourcesFilter(conversation);
 
         conversationMessageRepository.save(new ConversationMessage(conversation, MessageRole.user, content));
 
-        StringBuilder assistantResponse = new StringBuilder();
+        MessageStream stream = new MessageStream(emitter, conversation);
+        emitter.onCompletion(stream::cancel);
+        emitter.onError(error -> stream.cancel());
+        emitter.onTimeout(() -> {
+            stream.cancel();
+            emitter.complete();
+        });
 
-        chatClient.prompt()
+        stream.subscription.update(chatClient.prompt()
                 .messages(promptMessages)
-                .advisors(a -> a.advisors(questionAnswerAdvisor)
-                        .param(QuestionAnswerAdvisor.FILTER_EXPRESSION, filterExpression))
+                .advisors(a -> a.advisors(retrievalAugmentationAdvisor)
+                        .param(VectorStoreDocumentRetriever.FILTER_EXPRESSION, filterExpression))
                 .stream()
                 .content()
                 .subscribeOn(Schedulers.boundedElastic())
                 .subscribe(
-                        chunk -> onToken(emitter, assistantResponse, chunk),
-                        error -> onStreamError(emitter, error),
-                        () -> onStreamComplete(emitter, conversation, assistantResponse)
-                );
+                        stream::onToken,
+                        stream::onError,
+                        stream::onComplete
+                ));
     }
 
     String buildActiveSourcesFilter(Conversation conversation) {
@@ -100,52 +108,70 @@ public class ConversationMessageService {
         return "source_id in [" + ids + "]";
     }
 
-    private List<Message> buildPromptMessages(UUID conversationId, String newUserContent) {
+    private final class MessageStream {
+        private final SseEmitter emitter;
+        private final Conversation conversation;
+        private final StringBuilder assistantResponse = new StringBuilder();
+        // A disposed swap also disposes a subscription assigned after a disconnect.
+        private final Disposable.Swap subscription = Disposables.swap();
+        private final AtomicBoolean closed = new AtomicBoolean();
 
-        List<ConversationMessage> history = conversationMessageRepository
-                .findTop10ByConversationIdOrderByCreatedAtDesc(conversationId);
-        Collections.reverse(history);
-
-        List<Message> promptMessages = new ArrayList<>();
-        promptMessages.add(new SystemMessage(SYSTEM_PROMPT));
-        history.forEach(message -> promptMessages.add(toSpringAiMessage(message)));
-        promptMessages.add(new UserMessage(newUserContent));
-
-        return promptMessages;
-    }
-
-    private Message toSpringAiMessage(ConversationMessage message) {
-        return message.getRole() == MessageRole.user
-                ? new UserMessage(message.getContent())
-                : new AssistantMessage(message.getContent());
-    }
-
-    private void onToken(SseEmitter emitter, StringBuilder assistantResponse, String chunk) {
-        assistantResponse.append(chunk);
-        try {
-            emitter.send(SseEmitter.event().data(Map.of("token", chunk)));
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
+        private MessageStream(SseEmitter emitter, Conversation conversation) {
+            this.emitter = emitter;
+            this.conversation = conversation;
         }
-    }
 
-    private void onStreamComplete(SseEmitter emitter, Conversation conversation, StringBuilder assistantResponse) {
-        ConversationMessage assistantMessage = conversationMessageRepository.save(
-                new ConversationMessage(conversation, MessageRole.assistant, assistantResponse.toString()));
-        try {
-            emitter.send(SseEmitter.event().data(Map.of("done", true, "messageId", assistantMessage.getId())));
-            emitter.complete();
-        } catch (IOException e) {
-            emitter.completeWithError(e);
+        private void cancel() {
+            closed.set(true);
+            subscription.dispose();
         }
-    }
 
-    private void onStreamError(SseEmitter emitter, Throwable error) {
-        try {
-            emitter.send(SseEmitter.event().data(Map.of("error", "STREAM_ERROR")));
-        } catch (IOException ignored) {
-            // stream already broken, nothing to notify
+        private void onToken(String chunk) {
+            if (closed.get()) return;
+            try {
+                emitter.send(SseEmitter.event().data(Map.of("token", chunk)));
+                assistantResponse.append(chunk);
+            } catch (IOException | IllegalStateException error) {
+                // A failed transport cannot carry an error event either.
+                cancel();
+                emitter.completeWithError(error);
+            }
         }
-        emitter.completeWithError(error);
+
+        private void onComplete() {
+            if (!closed.compareAndSet(false, true)) return;
+            ConversationMessage assistantMessage;
+            try {
+                assistantMessage = conversationMessageRepository.save(
+                        new ConversationMessage(conversation, MessageRole.assistant, assistantResponse.toString()));
+            } catch (RuntimeException error) {
+                sendError(error);
+                return;
+            }
+            try {
+                emitter.send(SseEmitter.event().data(Map.of("done", true, "messageId", assistantMessage.getId())));
+                emitter.complete();
+            } catch (IOException | IllegalStateException error) {
+                emitter.completeWithError(error);
+            } finally {
+                subscription.dispose();
+            }
+        }
+
+        private void onError(Throwable error) {
+            if (!closed.compareAndSet(false, true)) return;
+            sendError(error);
+        }
+
+        private void sendError(Throwable error) {
+            try {
+                emitter.send(SseEmitter.event().data(Map.of("error", "STREAM_ERROR")));
+            } catch (IOException | IllegalStateException ignored) {
+                // Completion can race with this final notification.
+            } finally {
+                subscription.dispose();
+                emitter.completeWithError(error);
+            }
+        }
     }
 }

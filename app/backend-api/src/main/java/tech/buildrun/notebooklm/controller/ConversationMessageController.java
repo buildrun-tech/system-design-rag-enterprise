@@ -40,7 +40,6 @@ public class ConversationMessageController {
                               @PathVariable UUID conversationId,
                               @Valid @RequestBody ConversationMessageCreateRequest request) {
         SseEmitter emitter = new SseEmitter(STREAM_TIMEOUT_MS);
-        emitter.onTimeout(emitter::complete);
         conversationMessageService.sendMessage(conversationId, currentUser.getId(), request.content(), emitter);
         return emitter;
     }
