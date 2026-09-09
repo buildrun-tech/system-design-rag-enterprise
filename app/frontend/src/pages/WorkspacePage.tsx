@@ -162,6 +162,7 @@ export default function WorkspacePage() {
       },
       body: JSON.stringify({ content: userMessage.content }),
       signal: controller.signal,
+      openWhenHidden: true,
       async onopen(response) {
         if (!response.ok) {
           throw new Error(`stream failed: ${response.status}`)
