@@ -5,6 +5,8 @@ import org.springframework.stereotype.Service;
 import tech.buildrun.notebooklm.entity.User;
 import tech.buildrun.notebooklm.repository.UserRepository;
 
+import java.util.Optional;
+
 @Service
 public class UserUpsertService {
 
@@ -24,7 +26,15 @@ public class UserUpsertService {
             return userRepository.save(new User(cognitoSub, email, name));
         } catch (DataIntegrityViolationException e) {
             return userRepository.findByCognitoSub(cognitoSub)
+                    .or(() -> reattachByEmail(cognitoSub, email))
                     .orElseThrow(() -> e);
         }
+    }
+
+    private Optional<User> reattachByEmail(String cognitoSub, String email) {
+        return userRepository.findByEmail(email.toLowerCase()).map(user -> {
+            user.setCognitoSub(cognitoSub);
+            return userRepository.save(user);
+        });
     }
 }

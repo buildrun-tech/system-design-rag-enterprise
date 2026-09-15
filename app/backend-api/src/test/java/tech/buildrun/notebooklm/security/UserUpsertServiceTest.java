@@ -14,6 +14,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -65,13 +66,28 @@ class UserUpsertServiceTest {
     }
 
     @Test
-    void propagatesExceptionWhenEmailBelongsToAnotherCognitoSub() {
+    void reattachesExistingUserWhenEmailBelongsToStaleCognitoSub() {
         DataIntegrityViolationException emailConflict = new DataIntegrityViolationException("duplicate email");
+        User existing = new User("old-sub", "taken@test.com", "D");
         when(userRepository.findByCognitoSub("sub-4")).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenThrow(emailConflict);
+        when(userRepository.findByEmail("taken@test.com")).thenReturn(Optional.of(existing));
+        doReturn(existing).when(userRepository).save(existing);
 
-        assertThatThrownBy(() -> userUpsertService.resolve("sub-4", "taken@test.com", "D"))
-                .isSameAs(emailConflict);
-        verify(userRepository, times(2)).findByCognitoSub("sub-4");
+        User result = userUpsertService.resolve("sub-4", "taken@test.com", "D");
+
+        assertThat(result).isSameAs(existing);
+        assertThat(existing.getCognitoSub()).isEqualTo("sub-4");
+    }
+
+    @Test
+    void propagatesExceptionWhenNoUserMatchesCognitoSubOrEmail() {
+        DataIntegrityViolationException conflict = new DataIntegrityViolationException("duplicate");
+        when(userRepository.findByCognitoSub("sub-5")).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class))).thenThrow(conflict);
+        when(userRepository.findByEmail("e@test.com")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userUpsertService.resolve("sub-5", "e@test.com", "E"))
+                .isSameAs(conflict);
     }
 }

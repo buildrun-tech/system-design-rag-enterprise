@@ -48,6 +48,10 @@ public class User {
         return cognitoSub;
     }
 
+    public void setCognitoSub(String cognitoSub) {
+        this.cognitoSub = cognitoSub;
+    }
+
     public String getEmail() {
         return email;
     }
