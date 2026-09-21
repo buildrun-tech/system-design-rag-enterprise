@@ -147,3 +147,47 @@ Documentos relacionados: [DOMAIN.md](DOMAIN.md) · [API.md](API.md)
     ▼ [após stream completo]
     │── 7. Persiste resposta completa em `conversation_messages` (role: assistant)
 ```
+
+---
+
+## 4. CI/CD (GitHub Actions)
+
+Um workflow por trilha em `.github/workflows/`, cada um só dispara se arquivos da própria trilha mudaram (`paths:`). Deploy da app **nunca** roda `terraform` — infra e app são jobs distintos.
+
+```
+PR → develop|main         push → develop  (ambiente dev)          push → main  (ambiente prod)
+─────────────────         ─────────────────────────────────        ───────────────────────────────────
+backend.yml   ci          push-dev  build + push :<sha>-dev        promote-backend-prod  retag :<sha>-prod
+  ./mvnw package          deploy-backend-dev  ECS                   deploy-backend-prod   ECS
+frontend.yml  ci          push-dev  build + artifact dist/         promote-frontend-prod dist/ do run de dev
+  lint + build            deploy-frontend-dev  S3 + CloudFront      deploy-frontend-prod  S3 + CloudFront
+infra.yml     ci
+  fmt -check + validate   (sem terraform apply nesta etapa)         (sem rebuild: mesmo artefato do dev)
+```
+
+- **`develop` = dev, `main` = prod.** Prod nunca rebuilda: backend reusa a imagem `develop:<sha>-dev` (retag pra `production:<sha>-prod`), frontend reusa o artifact `frontend-dist-<sha>` do run de `develop` (retenção 7 dias). Se não achar, o job falha — sem fallback de rebuild. Por isso `main` deve receber o mesmo sha testado em `develop` (fast-forward).
+- **Deploy backend** (`.github/actions/deploy-ecs`): copia a task definition atual do service, troca a imagem, `register-task-definition`, `update-service --force-new-deployment`, `wait services-stable` e confere via `describe-services` que o service roda a nova revisão.
+- **Deploy frontend**: `aws s3 sync dist --delete` + `create-invalidation /*`.
+- **Auth AWS**: OIDC, role `arn:aws:iam::069765036136:role/ghactions-rag-enterprise` (dev e prod), sem access key.
+- **State Terraform**: backend S3 parcial em `infra/backend.tf` (`use_lockfile = true`, sem DynamoDB). Bucket, region e key entram no `init` via `-backend-config`; no CI vêm do env do `infra.yml` (`TF_STATE_BUCKET`, `TF_STATE_REGION`) e a key é `rag-enterprise/<env>/terraform.tfstate`. A role OIDC precisa de `s3:ListBucket`, `GetObject`, `PutObject` e `DeleteObject` no bucket (o delete é do lockfile). O job `ci` usa `init -backend=false`, sem credenciais.
+- **Destroy**: `infra.yml` via `workflow_dispatch` (escolhe `dev`/`prod`); aborta se `infra/destroy_config.json` tiver `false` pro ambiente. Nunca roda em push.
+
+### Pré-requisitos pro deploy funcionar de ponta a ponta
+
+Jobs `deploy-*` falham até a infra existir (fora do escopo do CI/CD) e as variables abaixo serem preenchidas. Criar GitHub **Environments** `dev` e `prod` (Settings → Environments), cada um com as mesmas variables, valores do respectivo ambiente:
+
+| Variable | Uso |
+|---|---|
+| `ECS_CLUSTER_NAME` | cluster ECS do ambiente |
+| `ECS_SERVICE_NAME` | service ECS do backend |
+| `FRONTEND_BUCKET_NAME` | bucket S3 do frontend |
+| `CLOUDFRONT_DISTRIBUTION_ID` | distribuição CloudFront do frontend |
+
+Também: role OIDC com trust pro repo (já criada), repositórios ECR `buildrun-ragenterprise/develop` e `/production` (já criados). Recomendado: required reviewers no Environment `prod` e branch protection exigindo os checks `ci`.
+
+### Rollback manual
+
+Não há rollback automático. Re-apontar pra versão anterior:
+
+- **Backend**: `aws ecs update-service --cluster <cluster> --service <service> --task-definition <ARN da revisão anterior>` (revisões antigas ficam registradas), ou re-rodar o job de deploy do commit anterior (imagem `<sha>-prod` continua no ECR).
+- **Frontend**: re-rodar o workflow `frontend` do commit anterior (artifact vale por 7 dias), ou `aws s3 sync` de um `dist/` baixado do run antigo + `create-invalidation`.

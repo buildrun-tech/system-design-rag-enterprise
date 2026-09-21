@@ -1,0 +1,129 @@
+name: frontend
+
+# PR (develop|main): lint + build.
+# push develop = dev: build, guarda dist/ como artifact (`frontend-dist-<sha>`) + deploy S3/CloudFront.
+# push main    = prod: reusa o dist/ do run de develop pro mesmo sha (sem rebuild) + deploy S3/CloudFront.
+# Vars de ambiente (FRONTEND_BUCKET_NAME, CLOUDFRONT_DISTRIBUTION_ID) vêm dos GitHub Environments `dev` e `prod`.
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths: ['app/frontend/**', '.github/workflows/frontend.yml']
+  push:
+    branches: [develop, main]
+    paths: ['app/frontend/**', '.github/workflows/frontend.yml']
+
+env:
+  AWS_REGION: us-east-2
+  AWS_ROLE_ARN: arn:aws:iam::069765036136:role/ghactions-rag-enterprise
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  push-dev:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist-${{ github.sha }}
+          path: app/frontend/dist
+          retention-days: 7
+          if-no-files-found: error
+
+  deploy-frontend-dev:
+    needs: push-dev
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist-${{ github.sha }}
+          path: dist
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - run: aws s3 sync dist "s3://${{ vars.FRONTEND_BUCKET_NAME }}" --delete
+      - run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/*"
+
+  promote-frontend-prod:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Baixar dist/ do run de develop (sem rebuild)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow frontend.yml \
+            --branch develop --event push --commit "$GITHUB_SHA" --status success \
+            --json databaseId --jq '.[0].databaseId // empty')
+          if [ -z "$run_id" ]; then
+            echo "::error::Nenhum run de develop bem-sucedido pro sha $GITHUB_SHA. Sem rebuild automático: o commit precisa ter passado por develop (artifact expira em 7 dias)."
+            exit 1
+          fi
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" -n "frontend-dist-$GITHUB_SHA" -D dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist-prod-${{ github.sha }}
+          path: dist
+          retention-days: 7
+          if-no-files-found: error
+
+  deploy-frontend-prod:
+    needs: promote-frontend-prod
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist-prod-${{ github.sha }}
+          path: dist
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - run: aws s3 sync dist "s3://${{ vars.FRONTEND_BUCKET_NAME }}" --delete
+      - run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/*"
