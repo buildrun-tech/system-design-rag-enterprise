@@ -161,8 +161,8 @@ backend.yml   ci          push-dev  build + push :<sha>-dev        promote-backe
   ./mvnw package          deploy-backend-dev  ECS                   deploy-backend-prod   ECS
 frontend.yml  ci          push-dev  build + artifact dist/         promote-frontend-prod dist/ do run de dev
   lint + build            deploy-frontend-dev  S3 + CloudFront      deploy-frontend-prod  S3 + CloudFront
-infra.yml     ci
-  fmt -check + validate   (sem terraform apply nesta etapa)         (sem rebuild: mesmo artefato do dev)
+infra.yml     ci + plan   apply (dev)  envs/dev + state S3       apply (prod)  envs/prod + state S3
+  fmt/validate/plan       (sem rebuild em prod: mesmo artefato do dev pra backend e frontend)
 ```
 
 - **`develop` = dev, `main` = prod.** Prod nunca rebuilda: backend reusa a imagem `develop:<sha>-dev` (retag pra `production:<sha>-prod`), frontend reusa o artifact `frontend-dist-<sha>` do run de `develop` (retenção 7 dias). Se não achar, o job falha — sem fallback de rebuild. Por isso `main` deve receber o mesmo sha testado em `develop` (fast-forward).
@@ -170,11 +170,12 @@ infra.yml     ci
 - **Deploy frontend**: `aws s3 sync dist --delete` + `create-invalidation /*`.
 - **Auth AWS**: OIDC, role `arn:aws:iam::069765036136:role/ghactions-rag-enterprise` (dev e prod), sem access key.
 - **State Terraform**: backend S3 parcial em `infra/backend.tf` (`use_lockfile = true`, sem DynamoDB). Bucket, region e key entram no `init` via `-backend-config`; no CI vêm do env do `infra.yml` (`TF_STATE_BUCKET`, `TF_STATE_REGION`) e a key é `rag-enterprise/<env>/terraform.tfstate`. A role OIDC precisa de `s3:ListBucket`, `GetObject`, `PutObject` e `DeleteObject` no bucket (o delete é do lockfile). O job `ci` usa `init -backend=false`, sem credenciais.
+- **Terraform (`infra.yml`)**: `develop` usa `infra/envs/dev/terraform.tfvars`, `main` usa `infra/envs/prod/terraform.tfvars`. PR: `ci` (fmt + validate, sem AWS) e `plan` (lê o state, `-lock=false`, não altera nada; ambiente pela branch base). Push: `apply` (`plan -out=tfplan` + `apply tfplan`, com `environment` dev/prod, então dá pra exigir reviewers em prod). Init compartilhado em `.github/actions/terraform-init`.
 - **Destroy**: `infra.yml` via `workflow_dispatch` (escolhe `dev`/`prod`); aborta se `infra/destroy_config.json` tiver `false` pro ambiente. Nunca roda em push.
 
 ### Pré-requisitos pro deploy funcionar de ponta a ponta
 
-Jobs `deploy-*` falham até a infra existir (fora do escopo do CI/CD) e as variables abaixo serem preenchidas. Criar GitHub **Environments** `dev` e `prod` (Settings → Environments), cada um com as mesmas variables, valores do respectivo ambiente:
+Jobs `deploy-*` falham até a infra real existir (hoje `infra/` só tem o bucket dummy) e as variables abaixo serem preenchidas. Criar GitHub **Environments** `dev` e `prod` (Settings → Environments), cada um com as mesmas variables, valores do respectivo ambiente:
 
 | Variable | Uso |
 |---|---|
