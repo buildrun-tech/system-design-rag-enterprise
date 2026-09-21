@@ -1,0 +1,71 @@
+name: infra
+
+# PR: terraform fmt + validate (sem backend, sem credenciais AWS).
+# workflow_dispatch: terraform destroy manual, gateado por infra/destroy_config.json.
+# Sem `terraform apply` automático nesta change; nunca destroy em push.
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths: ['infra/**', '.github/workflows/infra.yml']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Ambiente a destruir
+        type: choice
+        options: [dev, prod]
+        required: true
+
+env:
+  AWS_REGION: us-east-2
+  AWS_ROLE_ARN: arn:aws:iam::069765036136:role/ghactions-rag-enterprise
+  TF_STATE_BUCKET: terraform-statefile-069765036136-us-east-2-an
+  TF_STATE_REGION: us-east-2
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform -chdir=infra fmt -check -recursive
+      - run: terraform -chdir=infra init -backend=false
+      - run: terraform -chdir=infra validate
+
+  destroy:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    # environment com required reviewers = segunda trava humana antes do destroy
+    environment: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checar flag em destroy_config.json
+        env:
+          TARGET_ENV: ${{ inputs.environment }}
+        run: |
+          allowed=$(jq -r --arg env "$TARGET_ENV" '.[$env]' infra/destroy_config.json)
+          if [ "$allowed" != "true" ]; then
+            echo "::error::destroy de '$TARGET_ENV' desativado em infra/destroy_config.json (valor: $allowed). Abortando."
+            exit 1
+          fi
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+      - name: terraform destroy
+        env:
+          TARGET_ENV: ${{ inputs.environment }}
+        run: |
+          terraform -chdir=infra init \
+            -backend-config="bucket=$TF_STATE_BUCKET" \
+            -backend-config="region=$TF_STATE_REGION" \
+            -backend-config="key=rag-enterprise/$TARGET_ENV/terraform.tfstate"
+          terraform -chdir=infra destroy -auto-approve -var-file="envs/$TARGET_ENV/terraform.tfvars"

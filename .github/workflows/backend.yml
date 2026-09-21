@@ -1,0 +1,123 @@
+name: backend
+
+# PR (develop|main): build + testes.
+# push develop = ambiente dev: build/push da imagem + deploy ECS.
+# push main    = ambiente prod: promove a MESMA imagem de dev (retag, sem rebuild) + deploy ECS.
+# Vars de ambiente (ECS_CLUSTER_NAME, ECS_SERVICE_NAME) vêm dos GitHub Environments `dev` e `prod`.
+
+on:
+  pull_request:
+    branches: [develop, main]
+    paths: ['app/backend-api/**', '.github/workflows/backend.yml', '.github/actions/deploy-ecs/**']
+  push:
+    branches: [develop, main]
+    paths: ['app/backend-api/**', '.github/workflows/backend.yml', '.github/actions/deploy-ecs/**']
+
+env:
+  AWS_REGION: us-east-2
+  AWS_ROLE_ARN: arn:aws:iam::069765036136:role/ghactions-rag-enterprise
+  ECR_REGISTRY: 069765036136.dkr.ecr.us-east-2.amazonaws.com
+  ECR_DEV_REPO: buildrun-ragenterprise/develop
+  ECR_PROD_REPO: buildrun-ragenterprise/production
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app/backend-api
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      # package = compile + test + jar. Testcontainers usa o Docker do runner.
+      - run: ./mvnw -B package
+
+  push-dev:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Build + push imagem dev
+        run: |
+          image="$ECR_REGISTRY/$ECR_DEV_REPO:${GITHUB_SHA}-dev"
+          docker build -t "$image" app/backend-api
+          docker push "$image"
+
+  deploy-backend-dev:
+    needs: push-dev
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: ./.github/actions/deploy-ecs
+        with:
+          cluster: ${{ vars.ECS_CLUSTER_NAME }}
+          service: ${{ vars.ECS_SERVICE_NAME }}
+          image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_DEV_REPO }}:${{ github.sha }}-dev
+
+  promote-backend-prod:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - name: Retag dev para prod (sem rebuild)
+        run: |
+          src="$ECR_REGISTRY/$ECR_DEV_REPO:${GITHUB_SHA}-dev"
+          dst="$ECR_REGISTRY/$ECR_PROD_REPO:${GITHUB_SHA}-prod"
+          if ! aws ecr describe-images --repository-name "$ECR_DEV_REPO" \
+               --image-ids imageTag="${GITHUB_SHA}-dev" > /dev/null 2>&1; then
+            echo "::error::Imagem $src não existe. Sem rebuild automático: o commit precisa ter passado por develop."
+            exit 1
+          fi
+          docker pull "$src"
+          docker tag "$src" "$dst"
+          docker push "$dst"
+
+  deploy-backend-prod:
+    needs: promote-backend-prod
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: ./.github/actions/deploy-ecs
+        with:
+          cluster: ${{ vars.ECS_CLUSTER_NAME }}
+          service: ${{ vars.ECS_SERVICE_NAME }}
+          image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_PROD_REPO }}:${{ github.sha }}-prod

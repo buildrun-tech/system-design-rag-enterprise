@@ -1,0 +1,55 @@
+name: Deploy ECS
+description: >
+  Registra nova revisão de task definition com a imagem informada, atualiza o service
+  e confirma o rollout. Nunca chama terraform (deploy da app separado da infra).
+  Requer credenciais AWS já configuradas no job.
+
+inputs:
+  cluster:
+    description: Nome do cluster ECS
+    required: true
+  service:
+    description: Nome do ECS service
+    required: true
+  image:
+    description: URI completa da imagem (registry/repo:tag)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Register task definition + update service
+      shell: bash
+      env:
+        CLUSTER: ${{ inputs.cluster }}
+        SERVICE: ${{ inputs.service }}
+        IMAGE: ${{ inputs.image }}
+      run: |
+        set -euo pipefail
+
+        current_td=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+          --query 'services[0].taskDefinition' --output text)
+
+        # parte da revisão atual, troca só a imagem e remove campos read-only
+        # ponytail: assume 1 container por task (index 0), ajustar se ganhar sidecar
+        aws ecs describe-task-definition --task-definition "$current_td" --query taskDefinition \
+          | jq --arg img "$IMAGE" '
+              .containerDefinitions[0].image = $img
+              | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities,
+                    .registeredAt, .registeredBy)' > td.json
+
+        new_td=$(aws ecs register-task-definition --cli-input-json file://td.json \
+          --query 'taskDefinition.taskDefinitionArn' --output text)
+        echo "Nova task definition: $new_td"
+
+        aws ecs update-service --cluster "$CLUSTER" --service "$SERVICE" \
+          --task-definition "$new_td" --force-new-deployment > /dev/null
+
+        aws ecs wait services-stable --cluster "$CLUSTER" --services "$SERVICE"
+
+        running_td=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+          --query 'services[0].taskDefinition' --output text)
+        if [ "$running_td" != "$new_td" ]; then
+          echo "::error::Rollout não convergiu: service roda $running_td, esperado $new_td"
+          exit 1
+        fi

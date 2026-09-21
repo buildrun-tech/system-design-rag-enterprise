@@ -83,6 +83,8 @@ public class SourceIngestionConsumer {
 
             vectorStore.add(tagged);
             source.setStatus(SourceStatus.READY);
+        } catch (SourceNotFoundException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Transactional Source ingestion failed: sourceId={}", sourceId, e);
             throw new RuntimeException(e);
