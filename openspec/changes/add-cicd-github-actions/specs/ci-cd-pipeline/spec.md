@@ -73,6 +73,17 @@ O sistema SHALL autenticar todo acesso à AWS nos workflows via OpenID Connect, 
 - **WHEN** um job precisa interagir com AWS (ECR, ECS, S3, CloudFront, Terraform backend)
 - **THEN** o job declara `permissions: id-token: write` e usa `aws-actions/configure-aws-credentials` com `role-to-assume: arn:aws:iam::069765036136:role/ghactions-rag-enterprise`
 
+### Requirement: Terraform plan e apply por ambiente com state em S3
+O sistema SHALL executar `terraform plan` em pull requests que alteram `infra/**` e `terraform apply` em push para `develop` (ambiente dev) e `main` (ambiente prod), usando `infra/envs/<env>/terraform.tfvars` e state remoto em S3 com lockfile, com key por ambiente.
+
+#### Scenario: PR altera infra
+- **WHEN** um pull request altera `infra/**`
+- **THEN** o workflow executa `terraform fmt -check`, `validate` e `plan` (sem alterar recursos), usando o ambiente da branch base (`develop` = dev, `main` = prod)
+
+#### Scenario: Push em develop ou main altera infra
+- **WHEN** um push em `develop` (ou `main`) altera `infra/**`
+- **THEN** o workflow executa `terraform plan -out` e `terraform apply` do plano salvo com `infra/envs/dev/terraform.tfvars` (ou `envs/prod`), com state em `rag-enterprise/<env>/terraform.tfstate` no bucket S3 de state
+
 ### Requirement: Gate de destruição de infraestrutura
 O sistema SHALL nunca executar `terraform destroy` automaticamente em um push normal; a operação só SHALL ocorrer quando o flag correspondente ao ambiente em `infra/destroy_config.json` estiver `true` e o job for disparado explicitamente.
 

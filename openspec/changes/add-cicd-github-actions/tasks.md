@@ -38,3 +38,11 @@
 - [x] 6.1 Atualizar `ARCHITECTURE.md` com o fluxo de CI/CD e diagrama das trilhas
 - [x] 6.2 Documentar processo de rollback manual (reapontar deploy pra tag/artifact anterior) no README ou `ARCHITECTURE.md`
 - [x] 6.3 Listar repository variables/secrets necessários (`ECS_CLUSTER_NAME`, `FRONTEND_BUCKET_NAME`, `CLOUDFRONT_DISTRIBUTION_ID`, role OIDC) como pré-requisito pra pipeline funcionar de ponta a ponta
+
+## 7. Terraform plan/apply por ambiente (state S3)
+
+- [x] 7.1 `infra/backend.tf` com backend S3 parcial (`use_lockfile = true`); bucket/region/key via `-backend-config`
+- [x] 7.2 Composite action `.github/actions/terraform-init` (init com backend S3, key por ambiente)
+- [x] 7.3 `infra.yml`: job `plan` em PR (ambiente pela branch base), job `apply` em push develop|main (`envs/dev` | `envs/prod`), destroy reusa a action de init
+- [x] 7.4 Bucket S3 dummy em `infra/` (`main.tf`, `variables.tf`, `outputs.tf`, tfvars) só pra exercitar a pipeline
+- [ ] 7.5 Confirmar permissões S3 (state) na role `ghactions-rag-enterprise` e criar Environments `dev`/`prod` no GitHub; validar plan/apply reais

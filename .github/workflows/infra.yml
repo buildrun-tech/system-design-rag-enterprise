@@ -1,13 +1,18 @@
 name: infra
 
-# PR: terraform fmt + validate (sem backend, sem credenciais AWS).
-# workflow_dispatch: terraform destroy manual, gateado por infra/destroy_config.json.
-# Sem `terraform apply` automático nesta change; nunca destroy em push.
+# develop = dev, main = prod (envs em infra/envs/<env>/terraform.tfvars, state em S3 por ambiente).
+# PR (develop|main):  ci (fmt + validate, sem AWS) + plan (lê state, não altera nada).
+# push develop|main:  apply (plan -out + apply do plano salvo).
+# workflow_dispatch:  destroy manual, gateado por infra/destroy_config.json.
+# Nunca destroy em push.
 
 on:
   pull_request:
     branches: [develop, main]
-    paths: ['infra/**', '.github/workflows/infra.yml']
+    paths: ['infra/**', '.github/workflows/infra.yml', '.github/actions/terraform-init/**']
+  push:
+    branches: [develop, main]
+    paths: ['infra/**', '.github/workflows/infra.yml', '.github/actions/terraform-init/**']
   workflow_dispatch:
     inputs:
       environment:
@@ -36,19 +41,66 @@ jobs:
       - run: terraform -chdir=infra init -backend=false
       - run: terraform -chdir=infra validate
 
+  plan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # base develop = dev, base main = prod
+    env:
+      TARGET_ENV: ${{ github.base_ref == 'main' && 'prod' || 'dev' }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: ./.github/actions/terraform-init
+        with:
+          environment: ${{ env.TARGET_ENV }}
+      # -lock=false: PR só lê, não trava o state de um apply em andamento
+      - run: terraform -chdir=infra plan -lock=false -var-file="envs/$TARGET_ENV/terraform.tfvars"
+
+  apply:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    # environment com required reviewers no prod = aprovação antes do apply
+    environment: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+    # serializa applies do mesmo ambiente (state lock cobre o resto)
+    concurrency:
+      group: terraform-${{ github.ref_name }}
+      cancel-in-progress: false
+    env:
+      TARGET_ENV: ${{ github.ref_name == 'main' && 'prod' || 'dev' }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: ./.github/actions/terraform-init
+        with:
+          environment: ${{ env.TARGET_ENV }}
+      - run: terraform -chdir=infra plan -out=tfplan -var-file="envs/$TARGET_ENV/terraform.tfvars"
+      - run: terraform -chdir=infra apply -auto-approve tfplan
+
   destroy:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     # environment com required reviewers = segunda trava humana antes do destroy
     environment: ${{ inputs.environment }}
+    env:
+      TARGET_ENV: ${{ inputs.environment }}
     permissions:
       id-token: write
       contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Checar flag em destroy_config.json
-        env:
-          TARGET_ENV: ${{ inputs.environment }}
         run: |
           allowed=$(jq -r --arg env "$TARGET_ENV" '.[$env]' infra/destroy_config.json)
           if [ "$allowed" != "true" ]; then
@@ -59,13 +111,7 @@ jobs:
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - uses: hashicorp/setup-terraform@v3
-      - name: terraform destroy
-        env:
-          TARGET_ENV: ${{ inputs.environment }}
-        run: |
-          terraform -chdir=infra init \
-            -backend-config="bucket=$TF_STATE_BUCKET" \
-            -backend-config="region=$TF_STATE_REGION" \
-            -backend-config="key=rag-enterprise/$TARGET_ENV/terraform.tfstate"
-          terraform -chdir=infra destroy -auto-approve -var-file="envs/$TARGET_ENV/terraform.tfvars"
+      - uses: ./.github/actions/terraform-init
+        with:
+          environment: ${{ env.TARGET_ENV }}
+      - run: terraform -chdir=infra destroy -auto-approve -var-file="envs/$TARGET_ENV/terraform.tfvars"
