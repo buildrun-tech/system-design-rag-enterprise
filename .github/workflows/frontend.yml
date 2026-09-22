@@ -22,38 +22,50 @@ permissions:
 
 jobs:
   ci:
+    name: CI - Lint & Build
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: app/frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: app/frontend/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run build
+      - name: Install Dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
 
   push-dev:
+    name: Build Artifact (dev)
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: app/frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: app/frontend/package-lock.json
-      - run: npm ci
-      - run: npm run build
-      - uses: actions/upload-artifact@v4
+      - name: Install Dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
         with:
           name: frontend-dist-${{ github.sha }}
           path: app/frontend/dist
@@ -61,6 +73,7 @@ jobs:
           if-no-files-found: error
 
   deploy-frontend-dev:
+    name: Deploy Frontend (dev)
     needs: push-dev
     runs-on: ubuntu-latest
     environment: dev
@@ -68,27 +81,32 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
         with:
           name: frontend-dist-${{ github.sha }}
           path: dist
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - run: aws s3 sync dist "s3://${{ vars.FRONTEND_BUCKET_NAME }}" --delete
-      - run: |
+      - name: Sync to S3
+        run: aws s3 sync dist "s3://${{ vars.FRONTEND_BUCKET_NAME }}" --delete
+      - name: Invalidate CloudFront Cache
+        run: |
           aws cloudfront create-invalidation \
             --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/*"
 
   promote-frontend-prod:
+    name: Promote Artifact (dev to prod)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
     steps:
-      - name: Baixar dist/ do run de develop (sem rebuild)
+      - name: Download Artifact from dev Run (no rebuild)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -100,7 +118,8 @@ jobs:
             exit 1
           fi
           gh run download "$run_id" --repo "$GITHUB_REPOSITORY" -n "frontend-dist-$GITHUB_SHA" -D dist
-      - uses: actions/upload-artifact@v4
+      - name: Upload Promoted Artifact
+        uses: actions/upload-artifact@v4
         with:
           name: frontend-dist-prod-${{ github.sha }}
           path: dist
@@ -108,6 +127,7 @@ jobs:
           if-no-files-found: error
 
   deploy-frontend-prod:
+    name: Deploy Frontend (prod)
     needs: promote-frontend-prod
     runs-on: ubuntu-latest
     environment: prod
@@ -115,15 +135,19 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
         with:
           name: frontend-dist-prod-${{ github.sha }}
           path: dist
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - run: aws s3 sync dist "s3://${{ vars.FRONTEND_BUCKET_NAME }}" --delete
-      - run: |
+      - name: Sync to S3
+        run: aws s3 sync dist "s3://${{ vars.FRONTEND_BUCKET_NAME }}" --delete
+      - name: Invalidate CloudFront Cache
+        run: |
           aws cloudfront create-invalidation \
             --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/*"

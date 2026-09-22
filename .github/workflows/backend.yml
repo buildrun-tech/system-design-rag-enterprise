@@ -25,41 +25,50 @@ permissions:
 
 jobs:
   ci:
+    name: CI - Build & Test
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: app/backend-api
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Java 25
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '25'
           cache: maven
       # package = compile + test + jar. Testcontainers usa o Docker do runner.
-      - run: ./mvnw -B package
+      - name: Maven Build & Test
+        run: ./mvnw -B package
 
   push-dev:
+    name: Build & Push Image (dev)
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - uses: aws-actions/amazon-ecr-login@v2
-      - name: Build + push imagem dev
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Docker Build & Push
         run: |
           image="$ECR_REGISTRY/$ECR_DEV_REPO:${GITHUB_SHA}-dev"
           docker build -t "$image" app/backend-api
           docker push "$image"
 
   deploy-backend-dev:
+    name: Deploy Backend (dev)
     needs: push-dev
     runs-on: ubuntu-latest
     environment: dev
@@ -67,30 +76,36 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - uses: ./.github/actions/deploy-ecs
+      - name: Deploy to ECS
+        uses: ./.github/actions/deploy-ecs
         with:
           cluster: ${{ vars.ECS_CLUSTER_NAME }}
           service: ${{ vars.ECS_SERVICE_NAME }}
           image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_DEV_REPO }}:${{ github.sha }}-dev
 
   promote-backend-prod:
+    name: Promote Image (dev to prod)
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
     steps:
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - uses: aws-actions/amazon-ecr-login@v2
-      - name: Retag dev para prod (sem rebuild)
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Retag Image (no rebuild)
         run: |
           src="$ECR_REGISTRY/$ECR_DEV_REPO:${GITHUB_SHA}-dev"
           dst="$ECR_REGISTRY/$ECR_PROD_REPO:${GITHUB_SHA}-prod"
@@ -104,6 +119,7 @@ jobs:
           docker push "$dst"
 
   deploy-backend-prod:
+    name: Deploy Backend (prod)
     needs: promote-backend-prod
     runs-on: ubuntu-latest
     environment: prod
@@ -111,12 +127,15 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - uses: ./.github/actions/deploy-ecs
+      - name: Deploy to ECS
+        uses: ./.github/actions/deploy-ecs
         with:
           cluster: ${{ vars.ECS_CLUSTER_NAME }}
           service: ${{ vars.ECS_SERVICE_NAME }}

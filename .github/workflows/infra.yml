@@ -32,16 +32,23 @@ permissions:
 
 jobs:
   ci:
+    name: CI - Terraform Format & Validate
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: hashicorp/setup-terraform@v3
-      - run: terraform -chdir=infra fmt -check -recursive
-      - run: terraform -chdir=infra init -backend=false
-      - run: terraform -chdir=infra validate
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+      - name: Terraform Format Check
+        run: terraform -chdir=infra fmt -check -recursive
+      - name: Terraform Init (no backend)
+        run: terraform -chdir=infra init -backend=false
+      - name: Terraform Validate
+        run: terraform -chdir=infra validate
 
   plan:
+    name: Terraform Plan
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     # base develop = dev, base main = prod
@@ -51,18 +58,23 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - uses: ./.github/actions/terraform-init
+      - name: Terraform Init
+        uses: ./.github/actions/terraform-init
         with:
           environment: ${{ env.TARGET_ENV }}
       # -lock=false: PR só lê, não trava o state de um apply em andamento
-      - run: terraform -chdir=infra plan -lock=false -var-file="envs/$TARGET_ENV/terraform.tfvars"
+      - name: Terraform Plan
+        run: terraform -chdir=infra plan -lock=false -var-file="envs/$TARGET_ENV/terraform.tfvars"
 
   apply:
+    name: Terraform Apply
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     # environment com required reviewers no prod = aprovação antes do apply
@@ -77,18 +89,24 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - uses: ./.github/actions/terraform-init
+      - name: Terraform Init
+        uses: ./.github/actions/terraform-init
         with:
           environment: ${{ env.TARGET_ENV }}
-      - run: terraform -chdir=infra plan -out=tfplan -var-file="envs/$TARGET_ENV/terraform.tfvars"
-      - run: terraform -chdir=infra apply -auto-approve tfplan
+      - name: Terraform Plan
+        run: terraform -chdir=infra plan -out=tfplan -var-file="envs/$TARGET_ENV/terraform.tfvars"
+      - name: Terraform Apply
+        run: terraform -chdir=infra apply -auto-approve tfplan
 
   destroy:
+    name: Terraform Destroy
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     # environment com required reviewers = segunda trava humana antes do destroy
@@ -99,19 +117,23 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
-      - name: Checar flag em destroy_config.json
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Check Destroy Gate (destroy_config.json)
         run: |
           allowed=$(jq -r --arg env "$TARGET_ENV" '.[$env]' infra/destroy_config.json)
           if [ "$allowed" != "true" ]; then
             echo "::error::destroy de '$TARGET_ENV' desativado em infra/destroy_config.json (valor: $allowed). Abortando."
             exit 1
           fi
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - uses: ./.github/actions/terraform-init
+      - name: Terraform Init
+        uses: ./.github/actions/terraform-init
         with:
           environment: ${{ env.TARGET_ENV }}
-      - run: terraform -chdir=infra destroy -auto-approve -var-file="envs/$TARGET_ENV/terraform.tfvars"
+      - name: Terraform Destroy
+        run: terraform -chdir=infra destroy -auto-approve -var-file="envs/$TARGET_ENV/terraform.tfvars"
