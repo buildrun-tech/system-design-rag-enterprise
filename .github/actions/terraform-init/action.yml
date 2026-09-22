@@ -12,8 +12,10 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: hashicorp/setup-terraform@v3
-    - shell: bash
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+    - name: Terraform Init (S3 backend)
+      shell: bash
       env:
         TARGET_ENV: ${{ inputs.environment }}
       run: |
