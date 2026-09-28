@@ -26,9 +26,10 @@ variable "vpc_cidr" {
 }
 
 variable "openrouter_api_key" {
-  description = "Chave de API do OpenRouter (SPRING_AI_OPENAI_API_KEY), guardada no secret único"
+  description = "Placeholder pro secret único; o valor real é setado fora do Terraform via `aws secretsmanager put-secret-value` (ver infra/README.md) — nunca passa pelo state nem pelo CI"
   type        = string
   sensitive   = true
+  default     = "REPLACE_VIA_PUT_SECRET_VALUE"
 }
 
 # --- Dimensionamento ---

@@ -36,10 +36,29 @@ cd infra
 
 terraform init -backend-config=envs/dev/backend.hcl
 
-export TF_VAR_openrouter_api_key="<chave>"
 terraform plan  -var-file=envs/dev/terraform.tfvars
 terraform apply -var-file=envs/dev/terraform.tfvars
 ```
+
+`openrouter_api_key` tem default placeholder (`infra/variables.tf`) — **nunca
+passa pelo CI nem pelo `TF_VAR`**. `terraform plan`/`apply` sempre roda com
+`-input=false`: sem valor real ele não trava esperando input, só usa o
+placeholder. O `aws_secretsmanager_secret_version` do módulo `secret` tem
+`lifecycle { ignore_changes = [secret_string] }`, então o placeholder só é
+gravado na criação do secret — applies seguintes não sobrescrevem.
+
+**Valor real da chave (manual, uma vez por ambiente, depois do primeiro apply):**
+
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id "rag/dev/app" \
+  --secret-string "$(aws secretsmanager get-secret-value --secret-id rag/dev/app --query SecretString --output text | jq --arg key "<chave openrouter real>" '.openrouter_api_key = $key')"
+```
+
+Trade-off aceito: como `ignore_changes` cobre o JSON inteiro, uma rotação da
+senha do RDS feita pelo Terraform (troca de `random_password`) também não
+chega ao secret automaticamente depois do primeiro apply — precisa do mesmo
+`put-secret-value` manual atualizando `password` junto.
 
 Trocar `dev` por `prod` (e reexecutar `init -reconfigure` ao alternar de backend)
 para o outro ambiente.
