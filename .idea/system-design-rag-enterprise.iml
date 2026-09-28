@@ -2,7 +2,20 @@
 <module type="JAVA_MODULE" version="4">
   <component name="NewModuleRootManager" inherit-compiler-output="true">
     <exclude-output />
-    <content url="file://$MODULE_DIR$" />
+    <content url="file://$MODULE_DIR$">
+      <excludeFolder url="file://$MODULE_DIR$/infra/.terraform" />
+      <excludeFolder url="file://$MODULE_DIR$/infra/modules/alb/.terraform" />
+      <excludeFolder url="file://$MODULE_DIR$/infra/modules/api-gateway-http/.terraform" />
+      <excludeFolder url="file://$MODULE_DIR$/infra/modules/cloudfront-spa/.terraform" />
+      <excludeFolder url="file://$MODULE_DIR$/infra/modules/cognito-user-pool/.terraform" />
+      <excludeFolder url="file://$MODULE_DIR$/infra/modules/ecs-cluster/.terraform" />
+      <excludeFolder url="file://$MODULE_DIR$/infra/modules/ecs-service/.terraform" />
+      <excludeFolder url="file://$MODULE_DIR$/infra/modules/network/.terraform" />
+      <excludeFolder url="file://$MODULE_DIR$/infra/modules/rds-postgres/.terraform" />
+      <excludeFolder url="file://$MODULE_DIR$/infra/modules/s3-bucket/.terraform" />
+      <excludeFolder url="file://$MODULE_DIR$/infra/modules/secret/.terraform" />
+      <excludeFolder url="file://$MODULE_DIR$/infra/modules/sqs-queue/.terraform" />
+    </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>

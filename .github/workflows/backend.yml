@@ -3,15 +3,15 @@ name: backend
 # PR (develop|main): build + testes.
 # push develop = ambiente dev: build/push da imagem + deploy ECS.
 # push main    = ambiente prod: promove a MESMA imagem de dev (retag, sem rebuild) + deploy ECS.
-# Vars de ambiente (ECS_CLUSTER_NAME, ECS_SERVICE_NAME) vêm dos GitHub Environments `dev` e `prod`.
+# Cluster/service ECS vêm de `terraform output` (infra/, add-terraform-infra), não de repository variables.
 
 on:
   pull_request:
     branches: [develop, main]
-    paths: ['app/backend-api/**', '.github/workflows/backend.yml', '.github/actions/deploy-ecs/**']
+    paths: ['app/backend-api/**', '.github/workflows/backend.yml', '.github/actions/deploy-ecs/**', '.github/actions/terraform-outputs/**']
   push:
     branches: [develop, main]
-    paths: ['app/backend-api/**', '.github/workflows/backend.yml', '.github/actions/deploy-ecs/**']
+    paths: ['app/backend-api/**', '.github/workflows/backend.yml', '.github/actions/deploy-ecs/**', '.github/actions/terraform-outputs/**']
 
 env:
   AWS_REGION: us-east-2
@@ -19,6 +19,8 @@ env:
   ECR_REGISTRY: 069765036136.dkr.ecr.us-east-2.amazonaws.com
   ECR_DEV_REPO: buildrun-ragenterprise/develop
   ECR_PROD_REPO: buildrun-ragenterprise/production
+  TF_STATE_BUCKET: terraform-statefile-069765036136-us-east-2-an
+  TF_STATE_REGION: us-east-2
 
 permissions:
   contents: read
@@ -83,11 +85,16 @@ jobs:
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+      - name: Read Terraform Outputs
+        id: tf
+        uses: ./.github/actions/terraform-outputs
+        with:
+          environment: dev
       - name: Deploy to ECS
         uses: ./.github/actions/deploy-ecs
         with:
-          cluster: ${{ vars.ECS_CLUSTER_NAME }}
-          service: ${{ vars.ECS_SERVICE_NAME }}
+          cluster: ${{ steps.tf.outputs.ecs_cluster_name }}
+          service: ${{ steps.tf.outputs.ecs_service_name }}
           image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_DEV_REPO }}:${{ github.sha }}-dev
 
   promote-backend-prod:
@@ -134,9 +141,14 @@ jobs:
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+      - name: Read Terraform Outputs
+        id: tf
+        uses: ./.github/actions/terraform-outputs
+        with:
+          environment: prod
       - name: Deploy to ECS
         uses: ./.github/actions/deploy-ecs
         with:
-          cluster: ${{ vars.ECS_CLUSTER_NAME }}
-          service: ${{ vars.ECS_SERVICE_NAME }}
+          cluster: ${{ steps.tf.outputs.ecs_cluster_name }}
+          service: ${{ steps.tf.outputs.ecs_service_name }}
           image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_PROD_REPO }}:${{ github.sha }}-prod
