@@ -3,19 +3,21 @@ name: frontend
 # PR (develop|main): lint + build.
 # push develop = dev: build, guarda dist/ como artifact (`frontend-dist-<sha>`) + deploy S3/CloudFront.
 # push main    = prod: reusa o dist/ do run de develop pro mesmo sha (sem rebuild) + deploy S3/CloudFront.
-# Vars de ambiente (FRONTEND_BUCKET_NAME, CLOUDFRONT_DISTRIBUTION_ID) vêm dos GitHub Environments `dev` e `prod`.
+# Bucket/distribuição vêm de `terraform output` (infra/, add-terraform-infra), não de repository variables.
 
 on:
   pull_request:
     branches: [develop, main]
-    paths: ['app/frontend/**', '.github/workflows/frontend.yml']
+    paths: ['app/frontend/**', '.github/workflows/frontend.yml', '.github/actions/terraform-outputs/**']
   push:
     branches: [develop, main]
-    paths: ['app/frontend/**', '.github/workflows/frontend.yml']
+    paths: ['app/frontend/**', '.github/workflows/frontend.yml', '.github/actions/terraform-outputs/**']
 
 env:
   AWS_REGION: us-east-2
   AWS_ROLE_ARN: arn:aws:iam::069765036136:role/ghactions-rag-enterprise
+  TF_STATE_BUCKET: terraform-statefile-069765036136-us-east-2-an
+  TF_STATE_REGION: us-east-2
 
 permissions:
   contents: read
@@ -81,6 +83,8 @@ jobs:
       id-token: write
       contents: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Download Build Artifact
         uses: actions/download-artifact@v4
         with:
@@ -91,12 +95,17 @@ jobs:
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+      - name: Read Terraform Outputs
+        id: tf
+        uses: ./.github/actions/terraform-outputs
+        with:
+          environment: dev
       - name: Sync to S3
-        run: aws s3 sync dist "s3://${{ vars.FRONTEND_BUCKET_NAME }}" --delete
+        run: aws s3 sync dist "s3://${{ steps.tf.outputs.frontend_bucket_name }}" --delete
       - name: Invalidate CloudFront Cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/*"
+            --distribution-id "${{ steps.tf.outputs.cloudfront_distribution_id }}" --paths "/*"
 
   promote-frontend-prod:
     name: Promote Artifact (dev to prod)
@@ -135,6 +144,8 @@ jobs:
       id-token: write
       contents: read
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
       - name: Download Build Artifact
         uses: actions/download-artifact@v4
         with:
@@ -145,9 +156,14 @@ jobs:
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+      - name: Read Terraform Outputs
+        id: tf
+        uses: ./.github/actions/terraform-outputs
+        with:
+          environment: prod
       - name: Sync to S3
-        run: aws s3 sync dist "s3://${{ vars.FRONTEND_BUCKET_NAME }}" --delete
+        run: aws s3 sync dist "s3://${{ steps.tf.outputs.frontend_bucket_name }}" --delete
       - name: Invalidate CloudFront Cache
         run: |
           aws cloudfront create-invalidation \
-            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" --paths "/*"
+            --distribution-id "${{ steps.tf.outputs.cloudfront_distribution_id }}" --paths "/*"

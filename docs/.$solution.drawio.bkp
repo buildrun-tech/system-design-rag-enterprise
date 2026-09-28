@@ -254,6 +254,9 @@
         <mxCell id="N2Lset6dI86UYAolCte7-2" value="pgvector" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="z5_U9TkCR6f4i2NtiouU-5" vertex="1">
           <mxGeometry x="582.5" y="240" width="70" height="30" as="geometry" />
         </mxCell>
+        <mxCell id="30EIHRPIUYPzZlRSGKR1-41" value="&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;role&lt;/span&gt;&lt;div&gt;&lt;span style=&quot;background-color: light-dark(#ffffff, var(--ge-dark-color, #121212));&quot;&gt;GhActions&lt;/span&gt;&lt;/div&gt;" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.role;" vertex="1" parent="z5_U9TkCR6f4i2NtiouU-5">
+          <mxGeometry x="608.1800000000001" y="434.5" width="44.32" height="25" as="geometry" />
+        </mxCell>
         <mxCell id="z5_U9TkCR6f4i2NtiouU-6" value="user A" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#232F3D;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.user;" parent="1" vertex="1">
           <mxGeometry x="590" y="800" width="40" height="40" as="geometry" />
         </mxCell>
@@ -627,7 +630,7 @@
         <mxCell id="30EIHRPIUYPzZlRSGKR1-9" value="Github Actions" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
           <mxGeometry x="780" y="1550" width="100" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="30EIHRPIUYPzZlRSGKR1-12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="30EIHRPIUYPzZlRSGKR1-10" target="z5_U9TkCR6f4i2NtiouU-5">
+        <mxCell id="30EIHRPIUYPzZlRSGKR1-12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="30EIHRPIUYPzZlRSGKR1-10" target="30EIHRPIUYPzZlRSGKR1-41">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="30EIHRPIUYPzZlRSGKR1-13" value="mvn build" style="shape=step;perimeter=stepPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
@@ -654,7 +657,7 @@
         <mxCell id="30EIHRPIUYPzZlRSGKR1-20" value="npm build" style="shape=step;perimeter=stepPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
           <mxGeometry x="1340" y="1721" width="105" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="30EIHRPIUYPzZlRSGKR1-21" value="npm build" style="shape=step;perimeter=stepPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+        <mxCell id="30EIHRPIUYPzZlRSGKR1-21" value="npm test" style="shape=step;perimeter=stepPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
           <mxGeometry x="1444" y="1721" width="116" height="40" as="geometry" />
         </mxCell>
         <mxCell id="30EIHRPIUYPzZlRSGKR1-23" value="" style="endArrow=none;html=1;rounded=0;" edge="1" parent="1">
@@ -719,6 +722,18 @@
         </mxCell>
         <mxCell id="30EIHRPIUYPzZlRSGKR1-40" value="invalida caches&amp;nbsp;&lt;div&gt;do cloudfront&lt;/div&gt;" style="shape=step;perimeter=stepPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
           <mxGeometry x="2180" y="1719" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="30EIHRPIUYPzZlRSGKR1-42" value="Assume Role" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1275" y="1258" width="90" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="30EIHRPIUYPzZlRSGKR1-43" value="container registry" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1490" y="1118" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="30EIHRPIUYPzZlRSGKR1-44" value="ECR" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+          <mxGeometry x="1525" y="1100" width="50" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="30EIHRPIUYPzZlRSGKR1-45" value="deploy" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="2140" y="1580" width="60" height="30" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

@@ -1,0 +1,55 @@
+name: Terraform outputs
+description: >
+  Faz terraform init (backend S3, read-only) e expõe o contrato de outputs do
+  módulo raiz como step outputs. Substitui repository variables manuais
+  (ECS_CLUSTER_NAME, FRONTEND_BUCKET_NAME, CLOUDFRONT_DISTRIBUTION_ID, ...)
+  agora que `add-terraform-infra` provisiona os recursos reais.
+  Requer credenciais AWS já configuradas no job e TF_STATE_BUCKET /
+  TF_STATE_REGION no env.
+
+inputs:
+  environment:
+    description: dev | prod
+    required: true
+
+outputs:
+  ecs_cluster_name:
+    value: ${{ steps.read.outputs.ecs_cluster_name }}
+  ecs_service_name:
+    value: ${{ steps.read.outputs.ecs_service_name }}
+  ecs_task_family:
+    value: ${{ steps.read.outputs.ecs_task_family }}
+  frontend_bucket_name:
+    value: ${{ steps.read.outputs.frontend_bucket_name }}
+  cloudfront_distribution_id:
+    value: ${{ steps.read.outputs.cloudfront_distribution_id }}
+  cloudfront_domain:
+    value: ${{ steps.read.outputs.cloudfront_domain }}
+  api_url:
+    value: ${{ steps.read.outputs.api_url }}
+  cognito_authority:
+    value: ${{ steps.read.outputs.cognito_authority }}
+  cognito_client_id:
+    value: ${{ steps.read.outputs.cognito_client_id }}
+  cognito_user_pool_id:
+    value: ${{ steps.read.outputs.cognito_user_pool_id }}
+
+runs:
+  using: composite
+  steps:
+    - name: Terraform Init (S3 backend, read-only)
+      uses: ./.github/actions/terraform-init
+      with:
+        environment: ${{ inputs.environment }}
+    - id: read
+      name: Read Terraform Outputs
+      shell: bash
+      run: |
+        set -euo pipefail
+        terraform -chdir=infra output -json > tf-outputs.json
+        for key in ecs_cluster_name ecs_service_name ecs_task_family frontend_bucket_name \
+                   cloudfront_distribution_id cloudfront_domain api_url cognito_authority \
+                   cognito_client_id cognito_user_pool_id; do
+          value=$(jq -r --arg k "$key" '.[$k].value' tf-outputs.json)
+          echo "$key=$value" >> "$GITHUB_OUTPUT"
+        done

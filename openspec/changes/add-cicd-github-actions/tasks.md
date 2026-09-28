@@ -44,5 +44,13 @@
 - [x] 7.1 `infra/backend.tf` com backend S3 parcial (`use_lockfile = true`); bucket/region/key via `-backend-config`
 - [x] 7.2 Composite action `.github/actions/terraform-init` (init com backend S3, key por ambiente)
 - [x] 7.3 `infra.yml`: job `plan` em PR (ambiente pela branch base), job `apply` em push develop|main (`envs/dev` | `envs/prod`), destroy reusa a action de init
-- [x] 7.4 Bucket S3 dummy em `infra/` (`main.tf`, `variables.tf`, `outputs.tf`, tfvars) só pra exercitar a pipeline
+- [x] 7.4 ~~Bucket S3 dummy em `infra/`~~ Substituído pela infra real da `add-terraform-infra` (ver seção 8)
 - [ ] 7.5 Confirmar permissões S3 (state) na role `ghactions-rag-enterprise` e criar Environments `dev`/`prod` no GitHub; validar plan/apply reais
+
+## 8. Integração com `add-terraform-infra` (follow-up desta change)
+
+- [x] 8.1 Criar `.github/actions/terraform-outputs`: init read-only + `terraform output -json`, expõe o contrato como step outputs (`ecs_cluster_name`, `ecs_service_name`, `frontend_bucket_name`, `cloudfront_distribution_id`, etc.)
+- [x] 8.2 `backend.yml` (`deploy-backend-dev`/`deploy-backend-prod`): trocar `vars.ECS_CLUSTER_NAME`/`vars.ECS_SERVICE_NAME` por `steps.tf.outputs.*` da `terraform-outputs`
+- [x] 8.3 `frontend.yml` (`deploy-frontend-dev`/`deploy-frontend-prod`): trocar `vars.FRONTEND_BUCKET_NAME`/`vars.CLOUDFRONT_DISTRIBUTION_ID` por `steps.tf.outputs.*`; adicionar `actions/checkout` (necessário pra rodar a composite action local)
+- [x] 8.4 `.github/actions/deploy-ecs` já clona a revisão vigente da task definition (`describe-task-definition` + troca só `image`) — nenhuma mudança necessária, comportamento já bate com a task definition bootstrap do Terraform
+- [ ] 8.5 Rodar `deploy-backend-dev`/`deploy-frontend-dev` de ponta a ponta contra a infra real de dev (depende de 7.5 e do apply da `add-terraform-infra` em dev)

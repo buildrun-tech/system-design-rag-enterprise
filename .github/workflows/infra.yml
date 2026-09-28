@@ -70,8 +70,10 @@ jobs:
         with:
           environment: ${{ env.TARGET_ENV }}
       # -lock=false: PR só lê, não trava o state de um apply em andamento
+      # openrouter_api_key tem default placeholder (infra/variables.tf); valor real
+      # entra via `aws secretsmanager put-secret-value` fora do CI (infra/README.md)
       - name: Terraform Plan
-        run: terraform -chdir=infra plan -lock=false -var-file="envs/$TARGET_ENV/terraform.tfvars"
+        run: terraform -chdir=infra plan -input=false -lock=false -var-file="envs/$TARGET_ENV/terraform.tfvars"
 
   apply:
     name: Terraform Apply
@@ -101,9 +103,9 @@ jobs:
         with:
           environment: ${{ env.TARGET_ENV }}
       - name: Terraform Plan
-        run: terraform -chdir=infra plan -out=tfplan -var-file="envs/$TARGET_ENV/terraform.tfvars"
+        run: terraform -chdir=infra plan -input=false -out=tfplan -var-file="envs/$TARGET_ENV/terraform.tfvars"
       - name: Terraform Apply
-        run: terraform -chdir=infra apply -auto-approve tfplan
+        run: terraform -chdir=infra apply -input=false -auto-approve tfplan
 
   destroy:
     name: Terraform Destroy
@@ -136,4 +138,4 @@ jobs:
         with:
           environment: ${{ env.TARGET_ENV }}
       - name: Terraform Destroy
-        run: terraform -chdir=infra destroy -auto-approve -var-file="envs/$TARGET_ENV/terraform.tfvars"
+        run: terraform -chdir=infra destroy -input=false -auto-approve -var-file="envs/$TARGET_ENV/terraform.tfvars"
