@@ -5,7 +5,7 @@ vpc_cidr    = "10.0.0.0/16"
 
 rds_instance_class    = "db.t4g.micro"
 rds_allocated_storage = 20
-rds_engine_version    = "16.4"
+rds_engine_version    = "18"
 rds_multi_az          = false
 
 task_cpu       = "512"

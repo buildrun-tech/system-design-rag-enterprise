@@ -47,9 +47,9 @@ variable "rds_allocated_storage" {
 }
 
 variable "rds_engine_version" {
-  description = "Versão da engine PostgreSQL (major >= 16 para pgvector >= 0.5.0 / HNSW)"
+  description = "Versão da engine PostgreSQL. Major only (ex: \"18\") deixa a AWS escolher a minor disponível na região, evitando 'Cannot find version X.Y for postgres' quando uma minor pinada é descontinuada. Major >= 16 exigido para pgvector >= 0.5.0 / HNSW; alinhado com o pgvector/pgvector:pg18 usado localmente."
   type        = string
-  default     = "16.4"
+  default     = "18"
 }
 
 variable "rds_multi_az" {

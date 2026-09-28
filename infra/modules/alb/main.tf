@@ -1,6 +1,6 @@
 resource "aws_security_group" "alb" {
   name        = "${var.name_prefix}-alb-sg"
-  description = "SG do ALB, sem regras inline; regras criadas pelo consumidor"
+  description = "ALB SG, no inline rules; rules created by the consumer"
   vpc_id      = var.vpc_id
 
   tags = {

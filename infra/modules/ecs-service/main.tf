@@ -5,7 +5,7 @@ resource "aws_cloudwatch_log_group" "this" {
 
 resource "aws_security_group" "task" {
   name        = "${var.name_prefix}-task-sg"
-  description = "SG das tasks ECS, sem regras inline; regras criadas por este módulo (consumidor de alb-sg e db-sg)"
+  description = "ECS task SG, no inline rules; rules created by this module (consumer of alb-sg and db-sg)"
   vpc_id      = var.vpc_id
 
   tags = {

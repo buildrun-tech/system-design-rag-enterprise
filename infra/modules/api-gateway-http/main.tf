@@ -1,6 +1,6 @@
 resource "aws_security_group" "vpc_link" {
   name        = "${var.name_prefix}-vpclink-sg"
-  description = "SG do VPC Link, sem ingress; egress criado por este módulo pro alb-sg"
+  description = "VPC Link SG, no ingress; egress to alb-sg created by this module"
   vpc_id      = var.vpc_id
 
   tags = {
