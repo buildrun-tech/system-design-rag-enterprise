@@ -1,18 +1,15 @@
 name: infra
 
+# Reutilizável: chamado pelo pipeline.yml (gatilhos e path filter vivem lá).
 # develop = dev, main = prod (envs em infra/envs/<env>/terraform.tfvars, state em S3 por ambiente).
 # PR (develop|main):  ci (fmt + validate, sem AWS) + plan (lê state, não altera nada).
 # push develop|main:  apply (plan -out + apply do plano salvo).
-# workflow_dispatch:  destroy manual, gateado por infra/destroy_config.json.
+# workflow_dispatch:  destroy manual (standalone), gateado por infra/destroy_config.json.
 # Nunca destroy em push.
+# github.event_name / ref_name / base_ref são os do chamador (pipeline.yml).
 
 on:
-  pull_request:
-    branches: [develop, main]
-    paths: ['infra/**', '.github/workflows/infra.yml', '.github/actions/terraform-init/**']
-  push:
-    branches: [develop, main]
-    paths: ['infra/**', '.github/workflows/infra.yml', '.github/actions/terraform-init/**']
+  workflow_call:
   workflow_dispatch:
     inputs:
       environment:

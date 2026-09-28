@@ -152,7 +152,13 @@ Documentos relacionados: [DOMAIN.md](DOMAIN.md) · [API.md](API.md)
 
 ## 4. CI/CD (GitHub Actions)
 
-Um workflow por trilha em `.github/workflows/`, cada um só dispara se arquivos da própria trilha mudaram (`paths:`). Deploy da app **nunca** roda `terraform` — infra e app são jobs distintos.
+Entrypoint único `.github/workflows/pipeline.yml` (PR e push em `develop|main`). O job `changes` (`dorny/paths-filter`) decide quais trilhas rodam; `infra.yml`, `backend.yml` e `frontend.yml` são workflows reutilizáveis (`workflow_call`). Deploy da app **nunca** roda `terraform` — infra e app são jobs distintos, mas em push o deploy de app só começa depois do `apply` (`success`) ou sem ele (`skipped`, commit não tocou `infra/**`); `apply` com falha/cancelado bloqueia o deploy. Em PR as trilhas são independentes.
+
+```
+push:  changes ─▶ infra (apply) ─▶ backend-cd  (push-dev → deploy)
+                              └─▶ frontend-cd (push-dev → deploy)
+PR:    changes ─▶ infra (ci + plan) | backend-ci | frontend-ci
+```
 
 ```
 PR → develop|main         push → develop  (ambiente dev)          push → main  (ambiente prod)

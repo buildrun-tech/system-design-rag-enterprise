@@ -1,17 +1,13 @@
 name: backend
 
+# Reutilizável: chamado pelo pipeline.yml (gatilhos, path filter e ordem "infra antes do deploy" vivem lá).
 # PR (develop|main): build + testes.
 # push develop = ambiente dev: build/push da imagem + deploy ECS.
 # push main    = ambiente prod: promove a MESMA imagem de dev (retag, sem rebuild) + deploy ECS.
 # Cluster/service ECS vêm de `terraform output` (infra/, add-terraform-infra), não de repository variables.
 
 on:
-  pull_request:
-    branches: [develop, main]
-    paths: ['app/backend-api/**', '.github/workflows/backend.yml', '.github/actions/deploy-ecs/**', '.github/actions/terraform-outputs/**']
-  push:
-    branches: [develop, main]
-    paths: ['app/backend-api/**', '.github/workflows/backend.yml', '.github/actions/deploy-ecs/**', '.github/actions/terraform-outputs/**']
+  workflow_call:
 
 env:
   AWS_REGION: us-east-2

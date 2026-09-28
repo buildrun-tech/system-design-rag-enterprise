@@ -1,17 +1,13 @@
 name: frontend
 
+# Reutilizável: chamado pelo pipeline.yml (gatilhos, path filter e ordem "infra antes do deploy" vivem lá).
 # PR (develop|main): lint + build.
 # push develop = dev: build, guarda dist/ como artifact (`frontend-dist-<sha>`) + deploy S3/CloudFront.
 # push main    = prod: reusa o dist/ do run de develop pro mesmo sha (sem rebuild) + deploy S3/CloudFront.
 # Bucket/distribuição vêm de `terraform output` (infra/, add-terraform-infra), não de repository variables.
 
 on:
-  pull_request:
-    branches: [develop, main]
-    paths: ['app/frontend/**', '.github/workflows/frontend.yml', '.github/actions/terraform-outputs/**']
-  push:
-    branches: [develop, main]
-    paths: ['app/frontend/**', '.github/workflows/frontend.yml', '.github/actions/terraform-outputs/**']
+  workflow_call:
 
 env:
   AWS_REGION: us-east-2
@@ -119,11 +115,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          run_id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow frontend.yml \
-            --branch develop --event push --commit "$GITHUB_SHA" --status success \
-            --json databaseId --jq '.[0].databaseId // empty')
+          # artifact pelo nome (independe do status das outras trilhas do run de develop)
+          run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=frontend-dist-$GITHUB_SHA" \
+            --jq '[.artifacts[] | select(.expired == false)][0].workflow_run.id // empty')
           if [ -z "$run_id" ]; then
-            echo "::error::Nenhum run de develop bem-sucedido pro sha $GITHUB_SHA. Sem rebuild automático: o commit precisa ter passado por develop (artifact expira em 7 dias)."
+            echo "::error::Artifact frontend-dist-$GITHUB_SHA não encontrado (ou expirado). Sem rebuild automático: o commit precisa ter passado por develop (artifact expira em 7 dias)."
             exit 1
           fi
           gh run download "$run_id" --repo "$GITHUB_REPOSITORY" -n "frontend-dist-$GITHUB_SHA" -D dist

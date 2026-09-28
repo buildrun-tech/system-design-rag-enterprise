@@ -1,5 +1,11 @@
-locals {
-  engine_family = "postgres${split(".", var.engine_version)[0]}"
+# Resolve a minor real disponível na região a partir do major/major.minor
+# pedido em var.engine_version (ex: "18" -> "18.1"). Evita hardcodar uma
+# minor que a AWS descontinuou ("Cannot find version X.Y for postgres").
+# Todas as minors de PG >= 16 na AWS têm pgvector >= 0.5.0 disponível.
+data "aws_rds_engine_version" "this" {
+  engine  = "postgres"
+  version = var.engine_version
+  latest  = true
 }
 
 resource "aws_db_subnet_group" "this" {
@@ -9,7 +15,7 @@ resource "aws_db_subnet_group" "this" {
 
 resource "aws_security_group" "db" {
   name        = "${var.name_prefix}-db-sg"
-  description = "SG do RDS, sem regras inline; regras criadas pelo consumidor"
+  description = "RDS SG, no inline rules; rules created by the consumer"
   vpc_id      = var.vpc_id
 
   tags = {
@@ -19,13 +25,13 @@ resource "aws_security_group" "db" {
 
 resource "aws_db_parameter_group" "this" {
   name   = "${var.name_prefix}-pg"
-  family = local.engine_family
+  family = data.aws_rds_engine_version.this.parameter_group_family
 }
 
 resource "aws_db_instance" "this" {
   identifier     = "${var.name_prefix}-db"
   engine         = "postgres"
-  engine_version = var.engine_version
+  engine_version = data.aws_rds_engine_version.this.version_actual
   instance_class = var.instance_class
 
   allocated_storage = var.allocated_storage

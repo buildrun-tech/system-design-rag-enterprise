@@ -1,0 +1,92 @@
+name: pipeline
+
+# Entrypoint único de CI/CD. infra.yml, backend.yml e frontend.yml são reutilizáveis (workflow_call).
+# PR (develop|main): CI/plan das trilhas alteradas, independentes entre si.
+# push develop|main: infra (apply) roda primeiro; deploy de backend/frontend só depois dele
+#                    (success) ou sem ele (skipped = commit não tocou infra/**).
+# Destroy manual segue standalone em infra.yml (workflow_dispatch).
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+# chamado só pode reduzir permissões, não ampliar: teto para todos os jobs chamados
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+  pull-requests: read
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      infra: ${{ steps.filter.outputs.infra }}
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Filter Paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            infra:
+              - 'infra/**'
+              - '.github/workflows/infra.yml'
+              - '.github/workflows/pipeline.yml'
+              - '.github/actions/terraform-init/**'
+            backend:
+              - 'app/backend-api/**'
+              - '.github/workflows/backend.yml'
+              - '.github/workflows/pipeline.yml'
+              - '.github/actions/deploy-ecs/**'
+              - '.github/actions/terraform-outputs/**'
+            frontend:
+              - 'app/frontend/**'
+              - '.github/workflows/frontend.yml'
+              - '.github/workflows/pipeline.yml'
+              - '.github/actions/terraform-outputs/**'
+
+  infra:
+    name: infra
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    uses: ./.github/workflows/infra.yml
+
+  # --- PR: CI sem dependência entre trilhas ---
+  backend-ci:
+    name: backend
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.backend == 'true'
+    uses: ./.github/workflows/backend.yml
+
+  frontend-ci:
+    name: frontend
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.frontend == 'true'
+    uses: ./.github/workflows/frontend.yml
+
+  # --- push: só depois do apply (success) ou sem apply (skipped) ---
+  # !cancelled() é obrigatório: sem ele, infra skipped propaga skip para estes jobs
+  backend-cd:
+    name: backend
+    needs: [changes, infra]
+    if: >-
+      !cancelled() && github.event_name == 'push'
+      && needs.changes.outputs.backend == 'true'
+      && (needs.infra.result == 'success' || needs.infra.result == 'skipped')
+    uses: ./.github/workflows/backend.yml
+
+  frontend-cd:
+    name: frontend
+    needs: [changes, infra]
+    if: >-
+      !cancelled() && github.event_name == 'push'
+      && needs.changes.outputs.frontend == 'true'
+      && (needs.infra.result == 'success' || needs.infra.result == 'skipped')
+    uses: ./.github/workflows/frontend.yml
