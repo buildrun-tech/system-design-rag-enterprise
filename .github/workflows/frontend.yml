@@ -5,6 +5,7 @@ name: frontend
 # push develop = dev: build, guarda dist/ como artifact (`frontend-dist-<sha>`) + deploy S3/CloudFront.
 # push main    = prod: reusa o dist/ do run de develop pro mesmo sha (sem rebuild) + deploy S3/CloudFront.
 # Bucket/distribuição vêm de `terraform output` (infra/, add-terraform-infra), não de repository variables.
+# Config de runtime (Cognito/API) também: deploy gera dist/config.js por ambiente (frontend-runtime-config).
 
 on:
   workflow_call:
@@ -91,13 +92,18 @@ jobs:
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - name: Read Terraform Outputs
+      - name: Generate Runtime Config
         id: tf
-        uses: ./.github/actions/terraform-outputs
+        uses: ./.github/actions/frontend-runtime-config
         with:
           environment: dev
+      # config.js fora do sync: --exclude também protege de --delete, sem janela sem config
       - name: Sync to S3
-        run: aws s3 sync dist "s3://${{ steps.tf.outputs.frontend_bucket_name }}" --delete
+        run: aws s3 sync dist "s3://${{ steps.tf.outputs.frontend_bucket_name }}" --delete --exclude config.js
+      - name: Upload Runtime Config (no-cache)
+        run: |
+          aws s3 cp dist/config.js "s3://${{ steps.tf.outputs.frontend_bucket_name }}/config.js" \
+            --cache-control no-cache --content-type application/javascript
       - name: Invalidate CloudFront Cache
         run: |
           aws cloudfront create-invalidation \
@@ -152,13 +158,18 @@ jobs:
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - name: Read Terraform Outputs
+      - name: Generate Runtime Config
         id: tf
-        uses: ./.github/actions/terraform-outputs
+        uses: ./.github/actions/frontend-runtime-config
         with:
           environment: prod
+      # config.js fora do sync: --exclude também protege de --delete, sem janela sem config
       - name: Sync to S3
-        run: aws s3 sync dist "s3://${{ steps.tf.outputs.frontend_bucket_name }}" --delete
+        run: aws s3 sync dist "s3://${{ steps.tf.outputs.frontend_bucket_name }}" --delete --exclude config.js
+      - name: Upload Runtime Config (no-cache)
+        run: |
+          aws s3 cp dist/config.js "s3://${{ steps.tf.outputs.frontend_bucket_name }}/config.js" \
+            --cache-control no-cache --content-type application/javascript
       - name: Invalidate CloudFront Cache
         run: |
           aws cloudfront create-invalidation \

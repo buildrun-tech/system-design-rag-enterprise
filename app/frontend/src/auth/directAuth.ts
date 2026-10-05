@@ -4,17 +4,25 @@ import {
   CognitoUserPool,
   CognitoUserSession,
 } from 'amazon-cognito-identity-js'
+import { config } from '../config'
 
 const SESSION_STORAGE_KEY = 'notebooklm.directAuth.session'
 
 // floci não valida o conteúdo do código de confirmação — qualquer valor confirma o usuário
 const DUMMY_CONFIRMATION_CODE = '000000'
 
-const userPool = new CognitoUserPool({
-  UserPoolId: import.meta.env.VITE_COGNITO_USER_POOL_ID,
-  ClientId: import.meta.env.VITE_COGNITO_CLIENT_ID,
-  endpoint: import.meta.env.VITE_COGNITO_ENDPOINT,
-})
+// lazy: construtor lança sem UserPoolId/ClientId — instanciar no import derrubaria o app
+// em ambientes sem direct auth (CloudFront/AWS usa só Hosted UI)
+let userPool: CognitoUserPool | undefined
+
+function getUserPool(): CognitoUserPool {
+  userPool ??= new CognitoUserPool({
+    UserPoolId: config.cognitoUserPoolId,
+    ClientId: config.cognitoClientId,
+    endpoint: import.meta.env.VITE_COGNITO_ENDPOINT,
+  })
+  return userPool
+}
 
 export interface DirectAuthSession {
   accessToken: string
@@ -44,7 +52,7 @@ export function clearStoredSession() {
 }
 
 export function signIn(email: string, password: string): Promise<DirectAuthSession> {
-  const cognitoUser = new CognitoUser({ Username: email, Pool: userPool })
+  const cognitoUser = new CognitoUser({ Username: email, Pool: getUserPool() })
   const authDetails = new AuthenticationDetails({ Username: email, Password: password })
 
   return new Promise((resolve, reject) => {
@@ -61,13 +69,13 @@ export function signIn(email: string, password: string): Promise<DirectAuthSessi
 
 export function signUp(email: string, password: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    userPool.signUp(email, password, [], [], (err) => {
+    getUserPool().signUp(email, password, [], [], (err) => {
       if (err) {
         reject(err)
         return
       }
 
-      const cognitoUser = new CognitoUser({ Username: email, Pool: userPool })
+      const cognitoUser = new CognitoUser({ Username: email, Pool: getUserPool() })
       cognitoUser.confirmRegistration(DUMMY_CONFIRMATION_CODE, true, (confirmErr) => {
         if (confirmErr) {
           reject(confirmErr)

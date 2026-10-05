@@ -51,6 +51,7 @@ jobs:
               - '.github/workflows/frontend.yml'
               - '.github/workflows/pipeline.yml'
               - '.github/actions/terraform-outputs/**'
+              - '.github/actions/frontend-runtime-config/**'
 
   infra:
     name: infra
