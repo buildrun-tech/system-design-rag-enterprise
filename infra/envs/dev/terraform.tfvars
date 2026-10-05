@@ -10,7 +10,7 @@ rds_multi_az          = false
 
 task_cpu       = "512"
 task_memory    = "1024"
-desired_count  = 0 # sem imagem publicada no primeiro apply
+desired_count  = 1 # sem imagem publicada no primeiro apply
 container_port = 8080
 
 deletion_protection         = false

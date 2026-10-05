@@ -15,6 +15,7 @@ import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Card from '../components/ui/Card'
 import { ApiError } from '../api/client'
+import { config } from '../config'
 import { IconArrowLeft, IconFile, IconPlus, IconSend, IconSpinner, IconTrash, IconUpload } from '../components/icons'
 
 const PENDING_STATUSES = new Set(['PENDING', 'PROCESSING'])
@@ -24,7 +25,7 @@ interface ChatMessage extends ConversationMessage {
   failed?: boolean
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+const API_BASE_URL = config.apiBaseUrl
 
 export default function WorkspacePage() {
   const { notebookId } = useParams<{ notebookId: string }>()

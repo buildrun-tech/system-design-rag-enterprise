@@ -1,0 +1,57 @@
+name: Frontend runtime config
+description: >
+  Lê os outputs do Terraform do ambiente e gera dist/config.js
+  (window.__APP_CONFIG__) para o mesmo dist/ servir dev e prod sem rebuild.
+  Falha se algum valor obrigatório vier vazio/null: sem config.js no bucket o
+  CloudFront devolve index.html (custom_error_response) e o app quebra com SyntaxError.
+  Requer credenciais AWS já configuradas no job e TF_STATE_BUCKET / TF_STATE_REGION no env.
+
+inputs:
+  environment:
+    description: dev | prod
+    required: true
+
+outputs:
+  frontend_bucket_name:
+    value: ${{ steps.tf.outputs.frontend_bucket_name }}
+  cloudfront_distribution_id:
+    value: ${{ steps.tf.outputs.cloudfront_distribution_id }}
+
+runs:
+  using: composite
+  steps:
+    - name: Read Terraform Outputs
+      id: tf
+      uses: ./.github/actions/terraform-outputs
+      with:
+        environment: ${{ inputs.environment }}
+    - name: Generate config.js
+      shell: bash
+      env:
+        API_URL: ${{ steps.tf.outputs.api_url }}
+        COGNITO_AUTHORITY: ${{ steps.tf.outputs.cognito_authority }}
+        COGNITO_CLIENT_ID: ${{ steps.tf.outputs.cognito_client_id }}
+        COGNITO_USER_POOL_ID: ${{ steps.tf.outputs.cognito_user_pool_id }}
+        CLOUDFRONT_DOMAIN: ${{ steps.tf.outputs.cloudfront_domain }}
+        FRONTEND_BUCKET_NAME: ${{ steps.tf.outputs.frontend_bucket_name }}
+        CLOUDFRONT_DISTRIBUTION_ID: ${{ steps.tf.outputs.cloudfront_distribution_id }}
+      run: |
+        set -euo pipefail
+        for key in API_URL COGNITO_AUTHORITY COGNITO_CLIENT_ID COGNITO_USER_POOL_ID CLOUDFRONT_DOMAIN \
+                   FRONTEND_BUCKET_NAME CLOUDFRONT_DISTRIBUTION_ID; do
+          value="${!key}"
+          if [ -z "$value" ] || [ "$value" = "null" ]; then
+            echo "::error::Output do Terraform ausente para $key (ambiente ${{ inputs.environment }})."
+            exit 1
+          fi
+        done
+        # jq -n escapa os valores como JSON válido (JSON é JS válido)
+        json=$(jq -n \
+          --arg apiBaseUrl "$API_URL" \
+          --arg cognitoAuthority "$COGNITO_AUTHORITY" \
+          --arg cognitoClientId "$COGNITO_CLIENT_ID" \
+          --arg cognitoUserPoolId "$COGNITO_USER_POOL_ID" \
+          --arg cognitoRedirectUri "https://$CLOUDFRONT_DOMAIN/" \
+          '$ARGS.named')
+        echo "window.__APP_CONFIG__ = $json" > dist/config.js
+        cat dist/config.js
