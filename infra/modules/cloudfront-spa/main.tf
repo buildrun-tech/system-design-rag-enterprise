@@ -73,8 +73,3 @@ data "aws_iam_policy_document" "frontend_oac" {
     }
   }
 }
-
-resource "aws_s3_bucket_policy" "frontend_oac" {
-  bucket = var.bucket_name
-  policy = data.aws_iam_policy_document.frontend_oac.json
-}

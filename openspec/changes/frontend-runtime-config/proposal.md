@@ -8,6 +8,7 @@ Frontend em CloudFront quebra no load com `Uncaught Error: Both UserPoolId and C
 - Fallback para `import.meta.env.VITE_*` quando `window.__APP_CONFIG__` ausente — dev local e e2e seguem usando `.env`.
 - Deploy (dev e prod) gera `config.js` a partir de `terraform-outputs` do ambiente alvo, falha se algum valor vier vazio/`null`, sobe com `Cache-Control: no-cache`. Composite action única para dev e prod.
 - `CognitoUserPool` em `directAuth.ts` deixa de ser instanciado no import; criado lazy, só quando direct signup (floci) está ligado.
+- Bucket policy do frontend unificada: `cloudfront-spa` e `s3-bucket` criavam cada um um `aws_s3_bucket_policy` no mesmo bucket; o último apply vencia e removia o `AllowCloudFrontOAC` (CloudFront recebia `AccessDenied`). OAC passa a ser mesclada na policy do módulo `s3-bucket`.
 - Build once preservado: mesmo `dist/` serve dev e prod; promote sem rebuild continua válido.
 
 ## Capabilities
@@ -22,4 +23,5 @@ Frontend em CloudFront quebra no load com `Uncaught Error: Both UserPoolId and C
 
 - `app/frontend/index.html`, novo `app/frontend/src/config.ts`, `src/auth/oidcConfig.ts`, `src/auth/directAuth.ts`, `src/api/client.ts`, `src/pages/WorkspacePage.tsx`.
 - `.github/workflows/frontend.yml` (jobs `deploy-frontend-dev`, `deploy-frontend-prod`), nova composite em `.github/actions/frontend-runtime-config/`.
-- Sem mudança em Terraform, backend ou `pipeline.yml`.
+- `infra/modules/s3-bucket` (nova var `policy_documents`), `infra/modules/cloudfront-spa` (remove `aws_s3_bucket_policy.frontend_oac` e var `bucket_name`, novo output `bucket_policy_json`), `infra/main.tf`.
+- Sem mudança em backend.

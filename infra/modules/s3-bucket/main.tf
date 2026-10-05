@@ -56,6 +56,8 @@ resource "aws_s3_bucket_cors_configuration" "this" {
 }
 
 data "aws_iam_policy_document" "deny_insecure_transport" {
+  source_policy_documents = var.policy_documents
+
   statement {
     sid    = "DenyInsecureTransport"
     effect = "Deny"

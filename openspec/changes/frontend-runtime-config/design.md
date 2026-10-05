@@ -12,7 +12,7 @@ Outputs relevantes já expostos por `.github/actions/terraform-outputs`: `api_ur
 - Dev local e e2e sem fricção nova.
 
 **Non-Goals:**
-- Mudar Terraform, backend ou orquestração em `pipeline.yml`.
+- Mudar backend.
 - Levar direct signup (floci) para AWS. `VITE_ENABLE_DIRECT_SIGNUP` e `VITE_COGNITO_ENDPOINT` seguem build-time/local.
 - Passar outputs do job `apply` para o frontend (quebra quando infra é skipped; state S3 é a fonte).
 
@@ -36,12 +36,16 @@ Getter interno memoizado em `directAuth.ts` (`getUserPool()`), chamado dentro de
 **6. `redirectUri`.**
 Gerado no deploy como `https://<cloudfront_domain>/`, casando com `callback_urls` do Cognito.
 
+**7. Policy única no bucket do frontend.**
+Bucket S3 aceita uma policy só. `s3-bucket` (`DenyInsecureTransport`) e `cloudfront-spa` (`AllowCloudFrontOAC`) tinham cada um seu `aws_s3_bucket_policy` e se sobrescreviam. `s3-bucket` ganha `policy_documents` (mesclado via `source_policy_documents`); `cloudfront-spa` expõe `bucket_policy_json` em vez de aplicar. Sem ciclo: bucket, distribution, policy doc, bucket policy.
+
 ## Risks / Trade-offs
 
 - [`config.js` ausente no bucket: CloudFront responde 200 + `index.html` (custom_error_response 403/404), browser falha com `SyntaxError`] → validação no deploy impede publicar sem config; `cp` explícito com erro se arquivo não existir.
 - [Browser cacheia `config.js` antigo] → `Cache-Control: no-cache` + invalidation `/*` já existente.
 - [Dev local: Vite responde 404 para `/config.js`, erro no console] → inofensivo; fallback cobre. Aceito.
 - [Config pública exposta em `config.js`] → valores já seriam públicos no bundle (client id, pool id, URLs). Nenhum segredo entra no arquivo.
+- [Destroy de `aws_s3_bucket_policy.frontend_oac` chama DeleteBucketPolicy e apagaria a policy mesclada] → bloco `removed { lifecycle { destroy = false } }` só tira do state; update de `aws_s3_bucket_policy.this` grava a policy com as duas statements.
 - [`getStoredSession` usado no init de `useDirectAuth` com direct auth desligado] → só lê `sessionStorage`; não toca no pool.
 
 ## Migration Plan
