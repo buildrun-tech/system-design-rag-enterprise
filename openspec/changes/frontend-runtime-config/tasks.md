@@ -12,8 +12,17 @@
 - [x] 2.2 Atualizar `deploy-frontend-dev` e `deploy-frontend-prod` em `.github/workflows/frontend.yml`: usar a composite, `s3 sync dist --delete --exclude config.js`, `s3 cp dist/config.js` com `--cache-control no-cache --content-type application/javascript`, invalidation `/*`
 - [x] 2.3 Incluir `.github/actions/frontend-runtime-config/**` no filtro `frontend` de `.github/workflows/pipeline.yml`
 
-## 3. Verificação
+## 3. Bucket policy do frontend
 
-- [ ] 3.1 Após deploy dev: `curl https://<cloudfront_domain>/config.js` retorna JS com valores de dev e header `cache-control: no-cache`
-- [ ] 3.2 App em CloudFront dev carrega sem erro no console e login via Hosted UI funciona
-- [ ] 3.3 Após promote para main: `config.js` de prod tem pool/client de prod com mesmo bundle hash de dev
+- [x] 3.1 `s3-bucket`: var `policy_documents` mesclada via `source_policy_documents` no `deny_insecure_transport`
+- [x] 3.2 `cloudfront-spa`: remover `aws_s3_bucket_policy.frontend_oac` e var `bucket_name`; expor output `bucket_policy_json`
+- [x] 3.3 `infra/main.tf`: `module.frontend_bucket` recebe `policy_documents = [module.cloudfront_spa.bucket_policy_json]`
+- [x] 3.4 `terraform fmt -check` e `terraform validate` passam
+- [x] 3.5 `removed { destroy = false }` para `frontend_oac` (evita DeleteBucketPolicy apagar a policy mesclada)
+- [ ] 3.6 Após apply dev: `aws s3api get-bucket-policy` mostra `DenyInsecureTransport` + `AllowCloudFrontOAC`
+
+## 4. Verificação
+
+- [ ] 4.1 Após deploy dev: `curl https://<cloudfront_domain>/config.js` retorna JS com valores de dev e header `cache-control: no-cache`
+- [ ] 4.2 App em CloudFront dev carrega sem erro no console e login via Hosted UI funciona
+- [ ] 4.3 Após promote para main: `config.js` de prod tem pool/client de prod com mesmo bundle hash de dev

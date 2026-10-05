@@ -28,8 +28,9 @@ module "sources_bucket" {
 module "frontend_bucket" {
   source = "./modules/s3-bucket"
 
-  bucket_name   = "${local.name_prefix}-frontend-${local.account_id}"
-  force_destroy = var.force_destroy
+  bucket_name      = "${local.name_prefix}-frontend-${local.account_id}"
+  force_destroy    = var.force_destroy
+  policy_documents = [module.cloudfront_spa.bucket_policy_json]
 }
 
 module "ingest_queue" {
@@ -42,9 +43,18 @@ module "cloudfront_spa" {
   source = "./modules/cloudfront-spa"
 
   name_prefix                 = local.name_prefix
-  bucket_name                 = module.frontend_bucket.bucket_name
   bucket_arn                  = module.frontend_bucket.bucket_arn
   bucket_regional_domain_name = module.frontend_bucket.bucket_regional_domain_name
+}
+
+# policy OAC agora é mesclada em module.frontend_bucket. Só esquece do state: destroy chamaria
+# DeleteBucketPolicy e apagaria a policy mesclada (bucket tem uma policy só)
+removed {
+  from = module.cloudfront_spa.aws_s3_bucket_policy.frontend_oac
+
+  lifecycle {
+    destroy = false
+  }
 }
 
 module "cognito_user_pool" {

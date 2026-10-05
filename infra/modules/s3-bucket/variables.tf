@@ -15,6 +15,12 @@ variable "versioning" {
   default     = false
 }
 
+variable "policy_documents" {
+  description = "Policies JSON extras mescladas na bucket policy (bucket só aceita uma policy)"
+  type        = list(string)
+  default     = []
+}
+
 variable "cors_rules" {
   description = "Regras de CORS opcionais"
   type = list(object({
