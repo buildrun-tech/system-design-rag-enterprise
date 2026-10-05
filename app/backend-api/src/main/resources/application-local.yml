@@ -1,0 +1,15 @@
+# LocalStack — ativado via spring.profiles.active=local no .env
+spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${AWS_ENDPOINT_URL:http://localhost:4566}/${COGNITO_USER_POOL_ID:}
+  cloud:
+    aws:
+      endpoint: ${AWS_ENDPOINT_URL:http://localhost:4566}
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID:test}
+        secret-key: ${AWS_SECRET_ACCESS_KEY:test}
+      s3:
+        path-style-access-enabled: true
