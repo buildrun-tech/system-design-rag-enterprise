@@ -2,6 +2,7 @@ package tech.buildrun.notebooklm.service;
 
 import io.awspring.cloud.s3.S3Template;
 import io.awspring.cloud.sqs.operations.SqsTemplate;
+import org.slf4j.MDC;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -70,7 +71,7 @@ public class SourceService {
         }
         source.setS3Key(s3Key);
 
-        sqsTemplate.send(ingestionQueueUrl, new IngestionMessage(source.getId()));
+        sqsTemplate.send(ingestionQueueUrl, new IngestionMessage(source.getId(), MDC.get("requestId"), ownerId));
 
         return SourceResponse.from(source);
     }

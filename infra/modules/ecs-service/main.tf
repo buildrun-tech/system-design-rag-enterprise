@@ -206,6 +206,9 @@ resource "aws_ecs_service" "this" {
   desired_count   = var.desired_count
   launch_type     = "FARGATE"
 
+  # Spring Boot leva ~60s pra subir; sem grace o ALB derruba a task antes do primeiro 200
+  health_check_grace_period_seconds = 120
+
   network_configuration {
     subnets          = var.subnet_ids
     security_groups  = [aws_security_group.task.id]

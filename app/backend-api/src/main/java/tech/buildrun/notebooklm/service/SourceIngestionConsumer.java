@@ -4,6 +4,7 @@ import io.awspring.cloud.s3.S3Template;
 import io.awspring.cloud.sqs.annotation.SqsListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.reader.tika.TikaDocumentReader;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
@@ -53,10 +54,16 @@ public class SourceIngestionConsumer {
     @Transactional
     @SqsListener("${aws.sqs.ingestion-queue-url}")
     public void process(IngestionMessage message) {
-        log.info("Source ingestion started: sourceId={}", message.sourceId());
+        MDC.put("requestId", message.requestId() != null ? message.requestId() : UUID.randomUUID().toString());
+        if (message.userId() != null) {
+            MDC.put("userId", message.userId().toString());
+        }
+        long start = System.nanoTime();
+        log.info("Consumer in: SourceIngestionConsumer.process message={}", message);
         try {
             ingest(message.sourceId());
-            log.info("Source ingestion finished: sourceId={}", message.sourceId());
+            log.info("Consumer out: SourceIngestionConsumer.process sourceId={} status={} durationMs={}",
+                    message.sourceId(), SourceStatus.READY, (System.nanoTime() - start) / 1_000_000);
         } catch (Exception e) {
             // logger.error com throwable imprime a cadeia completa de causas (root cause incluida)
             log.error("Source ingestion failed: sourceId={}", message.sourceId(), e);
@@ -64,6 +71,8 @@ public class SourceIngestionConsumer {
             // rollback, entao o status so fica visivel se persistido a parte.
             markFailed(message.sourceId(), e.getMessage());
             throw e;
+        } finally {
+            MDC.clear();
         }
     }
 
@@ -81,6 +90,8 @@ public class SourceIngestionConsumer {
                     .map(chunk -> tagWithSourceMetadata(chunk, source))
                     .toList();
 
+            log.info("Source ingestion: sourceId={} s3Key={} extractedDocs={} chunks={}",
+                    sourceId, source.getS3Key(), extracted.size(), tagged.size());
             vectorStore.add(tagged);
             source.setStatus(SourceStatus.READY);
         } catch (SourceNotFoundException e) {

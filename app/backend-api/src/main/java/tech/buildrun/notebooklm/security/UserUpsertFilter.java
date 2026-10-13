@@ -4,6 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.MDC;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -31,6 +32,8 @@ public class UserUpsertFilter extends OncePerRequestFilter {
         if (authentication != null && authentication.getPrincipal() instanceof Jwt jwt) {
             User user = userUpsertService.resolve(jwt.getSubject(), extractEmail(jwt), extractName(jwt));
             request.setAttribute(CURRENT_USER_ATTRIBUTE, user);
+            MDC.put("userId", user.getId().toString());
+            MDC.put("sub", jwt.getSubject());
         }
         filterChain.doFilter(request, response);
     }
