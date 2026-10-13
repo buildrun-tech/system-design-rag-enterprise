@@ -20,6 +20,10 @@ import tech.buildrun.notebooklm.repository.ConversationMessageRepository;
 import tech.buildrun.notebooklm.repository.ConversationRepository;
 import tech.buildrun.notebooklm.repository.SourceRepository;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +34,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class ConversationMessageService {
+
+    private static final Logger log = LoggerFactory.getLogger(ConversationMessageService.class);
 
     private static final String SYSTEM_PROMPT =
             "Voce e um assistente que ajuda o usuario a entender os documentos do notebook.";
@@ -115,6 +121,8 @@ public class ConversationMessageService {
         // A disposed swap also disposes a subscription assigned after a disconnect.
         private final Disposable.Swap subscription = Disposables.swap();
         private final AtomicBoolean closed = new AtomicBoolean();
+        // callbacks rodam em outra thread: carrega o MDC da request original
+        private final Map<String, String> mdc = MDC.getCopyOfContextMap();
 
         private MessageStream(SseEmitter emitter, Conversation conversation) {
             this.emitter = emitter;
@@ -140,6 +148,15 @@ public class ConversationMessageService {
 
         private void onComplete() {
             if (!closed.compareAndSet(false, true)) return;
+            if (mdc != null) MDC.setContextMap(mdc);
+            try {
+                complete();
+            } finally {
+                MDC.clear();
+            }
+        }
+
+        private void complete() {
             ConversationMessage assistantMessage;
             try {
                 assistantMessage = conversationMessageRepository.save(
@@ -149,6 +166,8 @@ public class ConversationMessageService {
                 return;
             }
             try {
+                log.info("SSE stream out: conversationId={} messageId={} responseChars={}",
+                        conversation.getId(), assistantMessage.getId(), assistantResponse.length());
                 emitter.send(SseEmitter.event().data(Map.of("done", true, "messageId", assistantMessage.getId())));
                 emitter.complete();
             } catch (IOException | IllegalStateException error) {
@@ -160,7 +179,13 @@ public class ConversationMessageService {
 
         private void onError(Throwable error) {
             if (!closed.compareAndSet(false, true)) return;
-            sendError(error);
+            if (mdc != null) MDC.setContextMap(mdc);
+            try {
+                log.error("SSE stream failed: conversationId={}", conversation.getId(), error);
+                sendError(error);
+            } finally {
+                MDC.clear();
+            }
         }
 
         private void sendError(Throwable error) {

@@ -1,2 +1,3 @@
 [] - Implementar Outbox Pattern na ingestão
 [] - Criar as routes do API Gateway com Proxy para ALB
+[] - Fix CORS error API GTW vs Cloudfront

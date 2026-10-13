@@ -39,6 +39,10 @@ spring:
       region:
         static: ${AWS_REGION:us-east-1}
 
+logging:
+  pattern:
+    level: "%5p [rid=%X{requestId:-} uid=%X{userId:-} sub=%X{sub:-}]"
+
 app:
   cors:
     allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
