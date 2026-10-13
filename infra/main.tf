@@ -175,14 +175,16 @@ module "ecs_service" {
   task_policy_json = data.aws_iam_policy_document.task_policy.json
 
   environment_variables = {
-    SPRING_DATASOURCE_URL     = "jdbc:postgresql://${module.rds_postgres.endpoint}:${module.rds_postgres.port}/${module.rds_postgres.db_name}"
-    AWS_REGION                = var.aws_region
-    S3_BUCKET_NAME            = module.sources_bucket.bucket_name
-    SQS_INGESTION_QUEUE_URL   = module.ingest_queue.queue_url
-    COGNITO_USER_POOL_ID      = module.cognito_user_pool.user_pool_id
-    COGNITO_CLIENT_ID         = module.cognito_user_pool.client_id
-    APP_CORS_ALLOWED_ORIGINS  = local.cloudfront_origin
-    SPRING_AI_OPENAI_BASE_URL = local.openrouter_base_url
+    SPRING_DATASOURCE_URL                    = "jdbc:postgresql://${module.rds_postgres.endpoint}:${module.rds_postgres.port}/${module.rds_postgres.db_name}"
+    AWS_REGION                               = var.aws_region
+    S3_BUCKET_NAME                           = module.sources_bucket.bucket_name
+    SQS_INGESTION_QUEUE_URL                  = module.ingest_queue.queue_url
+    COGNITO_USER_POOL_ID                     = module.cognito_user_pool.user_pool_id
+    COGNITO_CLIENT_ID                        = module.cognito_user_pool.client_id
+    APP_CORS_ALLOWED_ORIGINS                 = local.cloudfront_origin
+    SPRING_AI_OPENAI_BASE_URL                = local.openrouter_base_url
+    SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL      = "openai/gpt-4o-mini"
+    SPRING_AI_OPENAI_EMBEDDING_OPTIONS_MODEL = "openai/text-embedding-3-large"
   }
 }
 
