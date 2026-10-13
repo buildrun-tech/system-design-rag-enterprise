@@ -1,5 +1,9 @@
 # LocalStack — ativado via spring.profiles.active=local no .env
 spring:
+  ai:
+    openai:
+      chat:
+        model: ${SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL:openai/gpt-4o-mini}
   security:
     oauth2:
       resourceserver:
