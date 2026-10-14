@@ -12,12 +12,9 @@ export function useActiveAuth() {
   const token = oidc.user?.access_token ?? direct.session?.accessToken ?? ''
 
   async function signOut() {
-    if (oidc.isAuthenticated) {
-      await oidc.removeUser()
-    }
-    if (direct.isAuthenticated) {
-      direct.signOut()
-    }
+    // incondicional: user OIDC expirado tem isAuthenticated=false mas segue no storage
+    await oidc.removeUser()
+    direct.signOut()
   }
 
   return { isAuthenticated, isLoading, token, signOut, direct }

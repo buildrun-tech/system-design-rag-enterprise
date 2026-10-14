@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useActiveAuth } from '../auth/useActiveAuth'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
-import { apiFetch } from '../api/client'
+import { apiFetch, handleUnauthorized } from '../api/client'
 import type { Conversation, ConversationMessage, Source } from '../api/types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -165,6 +165,9 @@ export default function WorkspacePage() {
       signal: controller.signal,
       openWhenHidden: true,
       async onopen(response) {
+        if (response.status === 401) {
+          handleUnauthorized()
+        }
         if (!response.ok) {
           throw new Error(`stream failed: ${response.status}`)
         }

@@ -1,0 +1,52 @@
+# Redeploy manual do backend SEM build: registra revisão nova a partir da última revisão da família
+# Terraform (config mais recente) mantendo a imagem que o service roda hoje.
+# Use depois de um `terraform apply` que mudou env/secrets/cpu/mem.
+
+name: Redeploy Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Ambiente
+        type: choice
+        options: [dev, prod]
+        required: true
+
+env:
+  AWS_REGION: us-east-2
+  AWS_ROLE_ARN: arn:aws:iam::069765036136:role/ghactions-rag-enterprise
+  TF_STATE_BUCKET: terraform-statefile-069765036136-us-east-2-an
+  TF_STATE_REGION: us-east-2
+
+permissions:
+  contents: read
+
+jobs:
+  redeploy:
+    name: Redeploy (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    concurrency: backend-deploy-${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Read Terraform Outputs
+        id: tf
+        uses: ./.github/actions/terraform-outputs
+        with:
+          environment: ${{ inputs.environment }}
+      - name: Redeploy to ECS (current image)
+        uses: ./.github/actions/deploy-ecs
+        with:
+          cluster: ${{ steps.tf.outputs.ecs_cluster_name }}
+          service: ${{ steps.tf.outputs.ecs_service_name }}
+          family: ${{ steps.tf.outputs.ecs_task_family }}
