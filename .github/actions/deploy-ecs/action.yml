@@ -1,7 +1,8 @@
 name: Deploy ECS
 description: >
-  Registra nova revisão de task definition com a imagem informada, atualiza o service
-  e confirma o rollout. Nunca chama terraform (deploy da app separado da infra).
+  Clona a última revisão da família da task definition (dona: Terraform), troca só a imagem,
+  atualiza o service e confirma o rollout. Sem `image`, reaproveita a imagem que o service
+  roda hoje (redeploy: promove só a configuração). Nunca chama terraform (deploy separado da infra).
   Requer credenciais AWS já configuradas no job.
 
 inputs:
@@ -11,9 +12,13 @@ inputs:
   service:
     description: Nome do ECS service
     required: true
-  image:
-    description: URI completa da imagem (registry/repo:tag)
+  family:
+    description: Família da task definition (output ecs_task_family do Terraform)
     required: true
+  image:
+    description: URI completa da imagem (registry/repo:tag). Vazio = imagem atual do service
+    required: false
+    default: 
 
 runs:
   using: composite
@@ -23,6 +28,7 @@ runs:
       env:
         CLUSTER: ${{ inputs.cluster }}
         SERVICE: ${{ inputs.service }}
+        FAMILY: ${{ inputs.family }}
         IMAGE: ${{ inputs.image }}
       run: |
         set -euo pipefail
@@ -30,9 +36,16 @@ runs:
         current_td=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
           --query 'services[0].taskDefinition' --output text)
 
-        # parte da revisão atual, troca só a imagem e remove campos read-only
+        if [ -z "$IMAGE" ]; then
+          IMAGE=$(aws ecs describe-task-definition --task-definition "$current_td" \
+            --query 'taskDefinition.containerDefinitions[0].image' --output text)
+          echo "Redeploy: reaproveitando imagem atual $IMAGE"
+        fi
+
+        # parte da última revisão da família (config do Terraform), troca só a imagem
+        # e remove campos read-only
         # ponytail: assume 1 container por task (index 0), ajustar se ganhar sidecar
-        aws ecs describe-task-definition --task-definition "$current_td" --query taskDefinition \
+        aws ecs describe-task-definition --task-definition "$FAMILY" --query taskDefinition \
           | jq --arg img "$IMAGE" '
               .containerDefinitions[0].image = $img
               | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities,

@@ -70,6 +70,7 @@ jobs:
     needs: push-dev
     runs-on: ubuntu-latest
     environment: dev
+    concurrency: backend-deploy-dev
     permissions:
       id-token: write
       contents: read
@@ -91,6 +92,7 @@ jobs:
         with:
           cluster: ${{ steps.tf.outputs.ecs_cluster_name }}
           service: ${{ steps.tf.outputs.ecs_service_name }}
+          family: ${{ steps.tf.outputs.ecs_task_family }}
           image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_DEV_REPO }}:${{ github.sha }}-dev
 
   promote-backend-prod:
@@ -126,6 +128,7 @@ jobs:
     needs: promote-backend-prod
     runs-on: ubuntu-latest
     environment: prod
+    concurrency: backend-deploy-prod
     permissions:
       id-token: write
       contents: read
@@ -147,4 +150,5 @@ jobs:
         with:
           cluster: ${{ steps.tf.outputs.ecs_cluster_name }}
           service: ${{ steps.tf.outputs.ecs_service_name }}
+          family: ${{ steps.tf.outputs.ecs_task_family }}
           image: ${{ env.ECR_REGISTRY }}/${{ env.ECR_PROD_REPO }}:${{ github.sha }}-prod

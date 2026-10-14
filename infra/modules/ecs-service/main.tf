@@ -149,7 +149,10 @@ resource "aws_iam_role_policy" "task" {
   policy = var.task_policy_json
 }
 
-# --- Task definition bootstrap ---
+# --- Task definition ---
+# Terraform e dono da configuracao da task (env, secrets, cpu/mem, roles, logs). A imagem aqui e
+# so bootstrap: o CD (deploy-ecs) clona a ultima revisao da familia e troca so a imagem.
+# O service ignora task_definition, entao apply registra revisao nova mas nunca faz rollout.
 
 resource "aws_ecs_task_definition" "this" {
   family                   = "${var.name_prefix}-app"
@@ -194,9 +197,9 @@ resource "aws_ecs_task_definition" "this" {
     }
   ])
 
-  lifecycle {
-    ignore_changes = [container_definitions]
-  }
+  # sem isso o apply desregistra a revisao anterior (a que o service roda) e o ECS
+  # nao consegue mais lancar tasks a partir dela
+  skip_destroy = true
 }
 
 resource "aws_ecs_service" "this" {

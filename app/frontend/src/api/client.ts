@@ -14,6 +14,17 @@ export class ApiError extends Error {
   }
 }
 
+let unauthorizedHandler: (() => void) | null = null
+
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  unauthorizedHandler = handler
+}
+
+// Spring devolve 401 com corpo vazio — só o status é confiável
+export function handleUnauthorized() {
+  unauthorizedHandler?.()
+}
+
 export async function apiFetch<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
   const isFormData = init.body instanceof FormData
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -24,6 +35,10 @@ export async function apiFetch<T>(path: string, token: string, init: RequestInit
       ...init.headers,
     },
   })
+
+  if (response.status === 401) {
+    handleUnauthorized()
+  }
 
   if (!response.ok) {
     const body: ApiErrorBody = await response.json().catch(() => ({

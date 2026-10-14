@@ -38,9 +38,24 @@ function toSession(cognitoSession: CognitoUserSession): DirectAuthSession {
   }
 }
 
+function isExpired(jwt: string): boolean {
+  try {
+    const payload = JSON.parse(atob(jwt.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return payload.exp * 1000 <= Date.now()
+  } catch {
+    return true
+  }
+}
+
 export function getStoredSession(): DirectAuthSession | null {
   const raw = sessionStorage.getItem(SESSION_STORAGE_KEY)
-  return raw ? JSON.parse(raw) : null
+  if (!raw) return null
+  const session: DirectAuthSession = JSON.parse(raw)
+  if (isExpired(session.accessToken)) {
+    clearStoredSession()
+    return null
+  }
+  return session
 }
 
 function storeSession(session: DirectAuthSession) {
