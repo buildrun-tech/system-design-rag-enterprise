@@ -19,6 +19,10 @@ import tech.buildrun.notebooklm.repository.UserRepository;
 import tech.buildrun.notebooklm.security.TestJwtDecoderConfig;
 import org.springframework.test.web.servlet.MockMvc;
 
+import tech.buildrun.notebooklm.dto.CitedChunk;
+import tech.buildrun.notebooklm.dto.CitedSource;
+
+import java.util.List;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -77,6 +81,28 @@ class ConversationMessageApiIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].content").value("question"))
                 .andExpect(jsonPath("$[1].content").value("answer"));
+    }
+
+    @Test
+    void ownerReadsPersistedSourcesOfAssistantMessageAndEmptyListForUserMessage() throws Exception {
+        String ownerSub = "owner-" + UUID.randomUUID();
+        UUID sourceId = UUID.randomUUID();
+
+        User owner = userRepository.save(new User(ownerSub, ownerSub + "@test.com", "Owner"));
+        Notebook notebook = notebookRepository.save(new Notebook(owner, "Notebook", null));
+        Conversation conversation = conversationRepository.save(new Conversation(notebook));
+        conversationMessageRepository.save(new ConversationMessage(conversation, MessageRole.user, "question"));
+        conversationMessageRepository.save(new ConversationMessage(conversation, MessageRole.assistant, "answer",
+                List.of(new CitedSource(sourceId, "contrato.pdf", List.of(new CitedChunk(2, "trecho do contrato"))))));
+
+        mockMvc.perform(get("/api/v1/conversations/" + conversation.getId() + "/messages")
+                        .header("Authorization", "Bearer " + ownerSub))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].sources").isEmpty())
+                .andExpect(jsonPath("$[1].sources[0].sourceId").value(sourceId.toString()))
+                .andExpect(jsonPath("$[1].sources[0].name").value("contrato.pdf"))
+                .andExpect(jsonPath("$[1].sources[0].chunks[0].chunkIndex").value(2))
+                .andExpect(jsonPath("$[1].sources[0].chunks[0].snippet").value("trecho do contrato"));
     }
 
     @Test

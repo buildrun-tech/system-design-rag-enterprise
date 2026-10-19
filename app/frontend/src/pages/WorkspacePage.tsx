@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useActiveAuth } from '../auth/useActiveAuth'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { apiFetch, handleUnauthorized } from '../api/client'
-import type { Conversation, ConversationMessage, Source } from '../api/types'
+import type { CitedSource, Conversation, ConversationMessage, Source } from '../api/types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -173,13 +173,13 @@ export default function WorkspacePage() {
         }
       },
       onmessage(event) {
-        const data = JSON.parse(event.data) as { token?: string; done?: boolean; messageId?: string; error?: string }
+        const data = JSON.parse(event.data) as { token?: string; done?: boolean; messageId?: string; sources?: CitedSource[]; error?: string }
         setMessages((current) =>
           current.map((message) => {
             if (message.id !== assistantMessage.id) return message
             if (data.error) return { ...message, streaming: false, failed: true }
             if (data.token) return { ...message, content: message.content + data.token }
-            if (data.done) return { ...message, id: data.messageId ?? message.id, streaming: false }
+            if (data.done) return { ...message, id: data.messageId ?? message.id, sources: data.sources ?? [], streaming: false }
             return message
           }),
         )
@@ -268,6 +268,23 @@ export default function WorkspacePage() {
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                 )}
                 {message.failed ? ' (falha no envio, tente novamente)' : ''}
+                {message.sources && message.sources.length > 0 && (
+                  <div className="message-sources">
+                    <span className="message-sources__label">Fontes</span>
+                    {message.sources.map((source) => (
+                      <span key={source.sourceId} className="source-chip" tabIndex={0}>
+                        {source.name}
+                        <span role="tooltip" className="source-chip__preview">
+                          {source.chunks.map((chunk) => (
+                            <span key={chunk.chunkIndex} className="source-chip__snippet">
+                              {chunk.snippet}
+                            </span>
+                          ))}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

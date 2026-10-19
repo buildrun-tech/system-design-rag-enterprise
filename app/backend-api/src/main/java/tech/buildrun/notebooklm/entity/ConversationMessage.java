@@ -11,8 +11,12 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import tech.buildrun.notebooklm.dto.CitedSource;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -34,6 +38,10 @@ public class ConversationMessage {
     @Column(nullable = false)
     private String content;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(nullable = false, columnDefinition = "jsonb")
+    private List<CitedSource> sources = List.of();
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -45,6 +53,12 @@ public class ConversationMessage {
         this.conversation = conversation;
         this.role = role;
         this.content = content;
+    }
+
+    public ConversationMessage(Conversation conversation, MessageRole role, String content,
+                               List<CitedSource> sources) {
+        this(conversation, role, content);
+        this.sources = sources;
     }
 
     public UUID getId() {
@@ -61,6 +75,10 @@ public class ConversationMessage {
 
     public String getContent() {
         return content;
+    }
+
+    public List<CitedSource> getSources() {
+        return sources;
     }
 
     public Instant getCreatedAt() {

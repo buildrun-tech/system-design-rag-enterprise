@@ -112,6 +112,7 @@ Mensagem individual dentro de uma conversa — enviada pelo usuário ou gerada p
 - `conversation_id` — FK para `conversations`
 - `role` — `user` ou `assistant`
 - `content` — texto completo da mensagem
+- `sources` — JSONB; snapshot das sources usadas pelo RAG na resposta (só `assistant`; `[]` caso contrário): `[{sourceId, name, chunks: [{chunkIndex, snippet}]}]`. `snippet` truncado em ~300 caracteres. Não é FK: a citação sobrevive à deleção da source
 - `created_at`
 
 **Regras:**
@@ -171,6 +172,7 @@ Mensagem individual dentro de uma conversa — enviada pelo usuário ou gerada p
           │ source_id (FK)       │    │ conversation_id (FK)         │
           │ PK (conv_id, src_id) │    │ role (user|assistant)        │
           └──────────────────────┘    │ content                      │
+                                      │ sources (JSONB)              │
              M:N entre conversations  │ created_at                   │
              e sources                └──────────────────────────────┘
 ```
@@ -278,6 +280,7 @@ CREATE TABLE conversation_messages (
     conversation_id UUID        NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
     role            VARCHAR(10) NOT NULL CHECK (role IN ('user', 'assistant')),
     content         TEXT        NOT NULL,
+    sources         JSONB       NOT NULL DEFAULT '[]'::jsonb,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
