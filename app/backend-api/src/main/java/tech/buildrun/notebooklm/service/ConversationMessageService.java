@@ -2,6 +2,9 @@ package tech.buildrun.notebooklm.service;
 
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.document.Document;
 import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.stereotype.Service;
@@ -9,6 +12,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.Disposable;
 import reactor.core.Disposables;
 import reactor.core.scheduler.Schedulers;
+import tech.buildrun.notebooklm.dto.CitedChunk;
+import tech.buildrun.notebooklm.dto.CitedSource;
 import tech.buildrun.notebooklm.dto.ConversationMessageResponse;
 import tech.buildrun.notebooklm.entity.Conversation;
 import tech.buildrun.notebooklm.entity.ConversationMessage;
@@ -25,6 +30,8 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,6 +43,8 @@ import java.util.stream.Collectors;
 public class ConversationMessageService {
 
     private static final Logger log = LoggerFactory.getLogger(ConversationMessageService.class);
+
+    private static final int SNIPPET_MAX_CHARS = 300;
 
     private static final String SYSTEM_PROMPT =
             "Voce e um assistente que ajuda o usuario a entender os documentos do notebook.";
@@ -91,10 +100,10 @@ public class ConversationMessageService {
                 .advisors(a -> a.advisors(retrievalAugmentationAdvisor)
                         .param(VectorStoreDocumentRetriever.FILTER_EXPRESSION, filterExpression))
                 .stream()
-                .content()
+                .chatResponse()
                 .subscribeOn(Schedulers.boundedElastic())
                 .subscribe(
-                        stream::onToken,
+                        stream::onResponse,
                         stream::onError,
                         stream::onComplete
                 ));
@@ -114,6 +123,33 @@ public class ConversationMessageService {
         return "source_id in [" + ids + "]";
     }
 
+    List<CitedSource> buildCitedSources(List<Document> documents) {
+        Map<UUID, List<CitedChunk>> chunksBySource = new LinkedHashMap<>();
+        for (Document document : documents) {
+            Object sourceId = document.getMetadata().get("source_id");
+            if (sourceId == null) continue;
+            Object chunkIndex = document.getMetadata().get("chunk_index");
+            chunksBySource.computeIfAbsent(UUID.fromString(sourceId.toString()), id -> new ArrayList<>())
+                    .add(new CitedChunk(chunkIndex instanceof Number n ? n.intValue() : 0, snippet(document.getText())));
+        }
+        if (chunksBySource.isEmpty()) return List.of();
+
+        Map<UUID, String> names = sourceRepository.findAllById(chunksBySource.keySet()).stream()
+                .collect(Collectors.toMap(Source::getId, Source::getName));
+        return chunksBySource.entrySet().stream()
+                .filter(entry -> names.containsKey(entry.getKey()))
+                .map(entry -> new CitedSource(entry.getKey(), names.get(entry.getKey()), entry.getValue()))
+                .toList();
+    }
+
+    static String snippet(String text) {
+        if (text == null) return "";
+        String normalized = text.strip().replaceAll("\\s+", " ");
+        if (normalized.length() <= SNIPPET_MAX_CHARS) return normalized;
+        int cut = normalized.lastIndexOf(' ', SNIPPET_MAX_CHARS);
+        return normalized.substring(0, cut > 0 ? cut : SNIPPET_MAX_CHARS) + "…";
+    }
+
     private final class MessageStream {
         private final SseEmitter emitter;
         private final Conversation conversation;
@@ -121,6 +157,8 @@ public class ConversationMessageService {
         // A disposed swap also disposes a subscription assigned after a disconnect.
         private final Disposable.Swap subscription = Disposables.swap();
         private final AtomicBoolean closed = new AtomicBoolean();
+        // RetrievalAugmentationAdvisor só anexa os docs no chunk com finish reason do stream.
+        private volatile List<Document> retrievedDocuments = List.of();
         // callbacks rodam em outra thread: carrega o MDC da request original
         private final Map<String, String> mdc = MDC.getCopyOfContextMap();
 
@@ -132,6 +170,15 @@ public class ConversationMessageService {
         private void cancel() {
             closed.set(true);
             subscription.dispose();
+        }
+
+        private void onResponse(ChatResponse response) {
+            if (response.getMetadata().get(RetrievalAugmentationAdvisor.DOCUMENT_CONTEXT) instanceof List<?> docs) {
+                retrievedDocuments = docs.stream().filter(Document.class::isInstance).map(Document.class::cast).toList();
+            }
+            Generation generation = response.getResult();
+            String text = generation == null ? null : generation.getOutput().getText();
+            if (text != null && !text.isEmpty()) onToken(text);
         }
 
         private void onToken(String chunk) {
@@ -158,17 +205,20 @@ public class ConversationMessageService {
 
         private void complete() {
             ConversationMessage assistantMessage;
+            List<CitedSource> sources;
             try {
+                sources = buildCitedSources(retrievedDocuments);
                 assistantMessage = conversationMessageRepository.save(
-                        new ConversationMessage(conversation, MessageRole.assistant, assistantResponse.toString()));
+                        new ConversationMessage(conversation, MessageRole.assistant, assistantResponse.toString(), sources));
             } catch (RuntimeException error) {
                 sendError(error);
                 return;
             }
             try {
-                log.info("SSE stream out: conversationId={} messageId={} responseChars={}",
-                        conversation.getId(), assistantMessage.getId(), assistantResponse.length());
-                emitter.send(SseEmitter.event().data(Map.of("done", true, "messageId", assistantMessage.getId())));
+                log.info("SSE stream out: conversationId={} messageId={} responseChars={} sources={}",
+                        conversation.getId(), assistantMessage.getId(), assistantResponse.length(), sources.size());
+                emitter.send(SseEmitter.event().data(
+                        Map.of("done", true, "messageId", assistantMessage.getId(), "sources", sources)));
                 emitter.complete();
             } catch (IOException | IllegalStateException error) {
                 emitter.completeWithError(error);

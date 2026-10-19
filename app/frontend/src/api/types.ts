@@ -31,10 +31,22 @@ export interface Conversation {
   preview?: string
 }
 
+export interface CitedChunk {
+  chunkIndex: number
+  snippet: string
+}
+
+export interface CitedSource {
+  sourceId: string
+  name: string
+  chunks: CitedChunk[]
+}
+
 export interface ConversationMessage {
   id: string
   role: MessageRole
   content: string
+  sources?: CitedSource[]
   createdAt: string
 }
 

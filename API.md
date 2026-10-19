@@ -315,16 +315,28 @@ Retorna o histórico completo de mensagens em ordem cronológica.
     "id": "994c2844-i63f-85h8-e150-880099884444",
     "role": "user",
     "content": "Qual o prazo de entrega mencionado no contrato?",
+    "sources": [],
     "createdAt": "2024-01-15T12:01:00Z"
   },
   {
     "id": "aa5d3955-j74g-96i9-f261-991100995555",
     "role": "assistant",
     "content": "De acordo com a cláusula 5.2 do contrato, o prazo é de 30 dias úteis após a assinatura.",
+    "sources": [
+      {
+        "sourceId": "661f9511-f30c-52e5-b827-557766551111",
+        "name": "contrato.pdf",
+        "chunks": [
+          { "chunkIndex": 4, "snippet": "5.2 O prazo de entrega é de 30 dias úteis após a assinatura do contrato..." }
+        ]
+      }
+    ],
     "createdAt": "2024-01-15T12:01:05Z"
   }
 ]
 ```
+
+> `sources` lista as sources que fundamentaram a resposta (snapshot gravado na mensagem). É `[]` para mensagens `user`, respostas sem contexto RAG e mensagens anteriores a este campo. `snippet` é o trecho do chunk recuperado (máx. ~300 caracteres). `sourceId` pode apontar para uma source já deletada; o `name` e o `snippet` permanecem.
 
 **Erros:** `404` conversa não existe ou pertence a outro usuário
 
@@ -361,12 +373,12 @@ data: {"token": "cláusula "}
 
 data: {"token": "5.2 "}
 
-data: {"done": true, "messageId": "aa5d3955-j74g-96i9-f261-991100995555"}
+data: {"done": true, "messageId": "aa5d3955-j74g-96i9-f261-991100995555", "sources": [{"sourceId": "661f9511-f30c-52e5-b827-557766551111", "name": "contrato.pdf", "chunks": [{"chunkIndex": 4, "snippet": "5.2 O prazo de entrega é de 30 dias úteis..."}]}]}
 
 ```
 
 > Cada evento SSE é uma linha `data: <json>\n\n`.
-> O evento final `{"done": true}` inclui o `messageId` da mensagem persistida.
+> O evento final `{"done": true}` inclui o `messageId` da mensagem persistida e `sources`: uma entrada por source usada no RAG (ordem de relevância), cada uma com os `chunks` recuperados (`chunkIndex` + `snippet` truncado em ~300 caracteres). `sources` é `[]` quando nenhum chunk foi recuperado. Clientes que ignoram o campo continuam compatíveis.
 > Erros de stream (LLM timeout, etc.) são enviados como `data: {"error": "STREAM_ERROR"}` antes de fechar.
 
 **Erros (retornados antes de iniciar o stream):**

@@ -4,12 +4,14 @@ import tech.buildrun.notebooklm.entity.ConversationMessage;
 import tech.buildrun.notebooklm.entity.MessageRole;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 public record ConversationMessageResponse(
         UUID id,
         MessageRole role,
         String content,
+        List<CitedSource> sources,
         Instant createdAt
 ) {
 
@@ -18,6 +20,7 @@ public record ConversationMessageResponse(
                 message.getId(),
                 message.getRole(),
                 message.getContent(),
+                message.getSources(),
                 message.getCreatedAt()
         );
     }

@@ -30,6 +30,7 @@ import tech.buildrun.notebooklm.entity.Conversation;
 import tech.buildrun.notebooklm.entity.ConversationMessage;
 import tech.buildrun.notebooklm.entity.MessageRole;
 import tech.buildrun.notebooklm.entity.Notebook;
+import tech.buildrun.notebooklm.entity.Source;
 import tech.buildrun.notebooklm.entity.SourceStatus;
 import tech.buildrun.notebooklm.entity.User;
 import tech.buildrun.notebooklm.exception.ConversationNotFoundException;
@@ -146,6 +147,7 @@ class ConversationMessageServiceTest {
         ConversationMessage savedAssistantMessage = savedCaptor.getAllValues().get(1);
         assertThat(savedAssistantMessage.getRole()).isEqualTo(MessageRole.assistant);
         assertThat(savedAssistantMessage.getContent()).isEqualTo("De acordo");
+        assertThat(savedAssistantMessage.getSources()).isEmpty();
     }
 
     @Test
@@ -393,6 +395,70 @@ class ConversationMessageServiceTest {
         String filter = service.buildActiveSourcesFilter(conversation);
 
         assertThat(filter).isEqualTo("source_id == 'none'");
+    }
+
+    @Test
+    void buildCitedSourcesGroupsChunksBySourceInRelevanceOrderAndSkipsMissingOrUntagged() {
+        UUID sourceA = UUID.randomUUID();
+        UUID sourceB = UUID.randomUUID();
+        UUID deletedSource = UUID.randomUUID();
+        org.springframework.ai.document.Document chunkA0 = chunk("texto A0", sourceA, 0);
+        org.springframework.ai.document.Document chunkB3 = chunk("texto B3", sourceB, 3);
+        org.springframework.ai.document.Document chunkA1 = chunk("texto A1", sourceA, 1);
+        org.springframework.ai.document.Document gone = chunk("texto removido", deletedSource, 0);
+        org.springframework.ai.document.Document untagged =
+                new org.springframework.ai.document.Document("sem source", java.util.Map.of());
+
+        Source a = sourceNamed(sourceA, "doc-a.pdf");
+        Source b = sourceNamed(sourceB, "doc-b.pdf");
+        when(sourceRepository.findAllById(any())).thenReturn(List.of(a, b));
+
+        var service = new ConversationMessageService(
+                conversationRepository, conversationMessageRepository, sourceRepository,
+                mock(ChatClient.class), retrievalAugmentationAdvisor, conversationHistoryProvider);
+
+        var cited = service.buildCitedSources(List.of(chunkA0, chunkB3, chunkA1, gone, untagged));
+
+        assertThat(cited).hasSize(2);
+        assertThat(cited.get(0).sourceId()).isEqualTo(sourceA);
+        assertThat(cited.get(0).name()).isEqualTo("doc-a.pdf");
+        assertThat(cited.get(0).chunks()).extracting("chunkIndex").containsExactly(0, 1);
+        assertThat(cited.get(0).chunks()).extracting("snippet").containsExactly("texto A0", "texto A1");
+        assertThat(cited.get(1).sourceId()).isEqualTo(sourceB);
+        assertThat(cited.get(1).chunks()).extracting("chunkIndex").containsExactly(3);
+    }
+
+    @Test
+    void buildCitedSourcesReturnsEmptyWithoutDocumentsAndSkipsLookup() {
+        var service = new ConversationMessageService(
+                conversationRepository, conversationMessageRepository, sourceRepository,
+                mock(ChatClient.class), retrievalAugmentationAdvisor, conversationHistoryProvider);
+
+        assertThat(service.buildCitedSources(List.of())).isEmpty();
+        verify(sourceRepository, never()).findAllById(any());
+    }
+
+    @Test
+    void snippetTruncatesAtWordBoundaryAndNormalizesWhitespace() {
+        assertThat(ConversationMessageService.snippet("  curto \n texto  ")).isEqualTo("curto texto");
+
+        String longText = "palavra ".repeat(100);
+        String snippet = ConversationMessageService.snippet(longText);
+
+        assertThat(snippet).endsWith("palavra…");
+        assertThat(snippet.length()).isLessThanOrEqualTo(301);
+        assertThat(ConversationMessageService.snippet(null)).isEmpty();
+    }
+
+    private org.springframework.ai.document.Document chunk(String text, UUID sourceId, int chunkIndex) {
+        return new org.springframework.ai.document.Document(
+                text, java.util.Map.of("source_id", sourceId.toString(), "chunk_index", chunkIndex));
+    }
+
+    private Source sourceNamed(UUID id, String name) {
+        Source source = new Source(null, name, tech.buildrun.notebooklm.entity.SourceType.FILE, "key", null);
+        ReflectionTestUtils.setField(source, "id", id);
+        return source;
     }
 
     private ConversationMessage assignIdAndReturn(org.mockito.invocation.InvocationOnMock invocation) {
