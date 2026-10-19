@@ -9,6 +9,7 @@ import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import tech.buildrun.notebooklm.tool.DateTimeTools;
 
 @Configuration
 public class ChatClientConfig {
@@ -17,7 +18,8 @@ public class ChatClientConfig {
 
     @Bean
     public ChatClient chatClient(ChatClient.Builder chatClientBuilder) {
-        return chatClientBuilder.build();
+        // defaultTools só aqui: os builders dos transformers (clone) não precisam de tools.
+        return chatClientBuilder.defaultTools(new DateTimeTools()).build();
     }
 
     @Bean
