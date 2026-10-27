@@ -227,7 +227,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="1M3f-9uCWSFnmzIZqa63-33" value="&lt;font style=&quot;font-size: 10px;&quot;&gt;s3-raw-sources&lt;/font&gt;" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#7AA116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" parent="z5_U9TkCR6f4i2NtiouU-5" vertex="1">
+        <mxCell id="1M3f-9uCWSFnmzIZqa63-33" value="&lt;font style=&quot;font-size: 10px;&quot;&gt;s3-frontend&lt;/font&gt;" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#7AA116;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" parent="z5_U9TkCR6f4i2NtiouU-5" vertex="1">
           <mxGeometry x="220" y="410" width="49.5" height="49.5" as="geometry" />
         </mxCell>
         <mxCell id="1M3f-9uCWSFnmzIZqa63-36" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="z5_U9TkCR6f4i2NtiouU-5" source="1M3f-9uCWSFnmzIZqa63-35" target="1M3f-9uCWSFnmzIZqa63-33" edge="1">
