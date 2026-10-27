@@ -103,6 +103,8 @@ Documentos relacionados: [DOMAIN.md](DOMAIN.md) · [API.md](API.md)
     │── 7.  Baixa arquivo do S3 (ou faz HTTP GET da URL)
     │── 8.  Extrai texto via Apache Tika (PDF/DOCX/MD) ou fetch (URL)
     │── 9.  Chunking: blocos de ~512 tokens com overlap de ~50 tokens
+    │── 9b. Enriquece cada chunk via LLM: `excerpt_keywords` (KeywordMetadataEnricher)
+    │       e `section_summary` (SummaryMetadataEnricher); falha aqui => FAILED
     │── 10. Gera embeddings via Spring AI EmbeddingModel (batch)
     │── 11. Persiste chunks + vetores em `source_chunks` (pgvector)
     │── 12. Atualiza source.status = READY (ou FAILED em caso de erro)
@@ -146,6 +148,27 @@ Documentos relacionados: [DOMAIN.md](DOMAIN.md) · [API.md](API.md)
     │
     ▼ [após stream completo]
     │── 7. Persiste resposta completa em `conversation_messages` (role: assistant)
+```
+
+### 3.3 Geração de Quiz (assíncrona, com polling)
+
+```
+[Browser] POST /api/v1/conversations/{id}/quizzes
+    │
+    ▼
+[Spring Boot]
+    │── 1. Cria `tb_quizzes` (PENDING) e responde 202 { quizId }
+    │── 2. Dispara o worker em thread virtual
+    ▼ [assíncrono]
+    │── 3. status = PROCESSING
+    │── 4. Backfill: chunks das sources ativas sem `excerpt_keywords` são enriquecidos
+    │       e atualizados in-place em `vector_store.metadata` (embedding intocado)
+    │── 5. Top-5 keywords por contagem (SQL sobre `vector_store.metadata`)
+    │── 6. similaritySearch por keyword (filtro de sources ativas) => chunks de contexto
+    │── 7. 1 chamada LLM com structured output (json_schema, OpenRouter require_parameters)
+    │── 8. Valida (5 x 4, 1 correta; 1 retry), embaralha opções, status = COMPLETED (ou FAILED)
+    ▼
+[Browser faz polling a cada 2s: GET /api/v1/conversations/{id}/quizzes/{quizId}]
 ```
 
 ---

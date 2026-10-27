@@ -48,8 +48,12 @@ class SourceIngestionConsumerTest {
     @Mock
     private VectorStore vectorStore;
 
+    @Mock
+    private ChunkEnrichmentService chunkEnrichmentService;
+
     private SourceIngestionConsumer newConsumer() {
-        return new SourceIngestionConsumer(sourceRepository, s3Template, vectorStore, "bucket", "openai/text-embedding-3-large");
+        return new SourceIngestionConsumer(sourceRepository, s3Template, vectorStore, chunkEnrichmentService,
+                "bucket", "openai/text-embedding-3-large");
     }
 
     @Test
@@ -67,6 +71,11 @@ class SourceIngestionConsumerTest {
         when(resource.getInputStream()).thenReturn(new ByteArrayInputStream("hello world".getBytes()));
         when(resource.getFilename()).thenReturn("doc.md");
 
+        when(chunkEnrichmentService.enrich(anyList())).thenAnswer(invocation -> {
+            List<Document> chunks = invocation.getArgument(0);
+            return chunks.stream().map(chunk -> chunk.mutate().metadata("excerpt_keywords", "a, b").build()).toList();
+        });
+
         newConsumer().process(new IngestionMessage(sourceId));
 
         InOrder order = inOrder(source);
@@ -80,7 +89,30 @@ class SourceIngestionConsumerTest {
         assertThat(added).isNotEmpty();
         assertThat(added.get(0).getMetadata())
                 .containsEntry("source_id", sourceId.toString())
-                .containsEntry("embedding_model", "openai/text-embedding-3-large");
+                .containsEntry("embedding_model", "openai/text-embedding-3-large")
+                .containsEntry("excerpt_keywords", "a, b");
+    }
+
+    @Test
+    void processMarksSourceFailedWhenEnrichmentFails() throws Exception {
+        User owner = new User("sub", "owner@test.com", "Owner");
+        Notebook notebook = new Notebook(owner, "Notebook", null);
+        Source source = new Source(notebook, "doc.md", SourceType.FILE, "some/key", null);
+        UUID sourceId = UUID.randomUUID();
+        org.springframework.test.util.ReflectionTestUtils.setField(source, "id", sourceId);
+
+        when(sourceRepository.findById(sourceId)).thenReturn(Optional.of(source));
+        S3Resource resource = mock(S3Resource.class);
+        when(s3Template.download("bucket", "some/key")).thenReturn(resource);
+        when(resource.getInputStream()).thenReturn(new ByteArrayInputStream("hello world".getBytes()));
+        when(resource.getFilename()).thenReturn("doc.md");
+        when(chunkEnrichmentService.enrich(anyList())).thenThrow(new IllegalStateException("llm down"));
+
+        assertThatThrownBy(() -> newConsumer().process(new IngestionMessage(sourceId)))
+                .isInstanceOf(RuntimeException.class);
+
+        assertThat(source.getStatus()).isEqualTo(SourceStatus.FAILED);
+        verify(vectorStore, never()).add(anyList());
     }
 
     @Test

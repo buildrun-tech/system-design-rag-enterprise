@@ -384,3 +384,45 @@ data: {"done": true, "messageId": "aa5d3955-j74g-96i9-f261-991100995555", "sourc
 **Erros (retornados antes de iniciar o stream):**
 - `400 Bad Request` — `content` ausente
 - `404 Not Found` — conversa não existe ou pertence a outro usuário
+
+---
+
+## Quiz
+
+Geração assíncrona: o `POST` cria um job e responde na hora; o cliente consulta o `GET` (polling, ~2s) até `COMPLETED` ou `FAILED`. O quiz usa as sources ativas da conversa (ou todas as `READY` do notebook se nenhuma estiver marcada). Cada `POST` gera um quiz novo.
+
+### `POST /api/v1/conversations/{conversationId}/quizzes`
+
+**Response `202 Accepted`:**
+```json
+{
+  "quizId": "bb6e4a66-k85h-07j0-g372-aa2211006666",
+  "status": "PENDING"
+}
+```
+
+**Erros:**
+- `404 Not Found` — conversa não existe ou pertence a outro usuário
+
+### `GET /api/v1/conversations/{conversationId}/quizzes/{quizId}`
+
+**Response `200 OK` (`status`: `PENDING` | `PROCESSING` | `COMPLETED` | `FAILED`):**
+```json
+{
+  "quizId": "bb6e4a66-k85h-07j0-g372-aa2211006666",
+  "status": "COMPLETED",
+  "questions": [
+    {
+      "question": "Qual o prazo de entrega previsto no contrato?",
+      "options": ["15 dias úteis", "30 dias úteis", "45 dias corridos", "60 dias corridos"],
+      "correctIndex": 1,
+      "explanation": "A cláusula 5.2 define o prazo de 30 dias úteis."
+    }
+  ]
+}
+```
+
+> `questions` só vem em `COMPLETED` (sempre 5 perguntas × 4 opções; `correctIndex` de 0 a 3). Em `FAILED` vem `errorMessage`. Um job em andamento sem atualização há mais de 10 minutos é devolvido como `FAILED`.
+
+**Erros:**
+- `404 Not Found` — conversa ou quiz não existe (ou pertence a outro usuário/conversa)

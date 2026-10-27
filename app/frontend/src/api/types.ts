@@ -54,3 +54,24 @@ export interface ApiErrorBody {
   error: string
   message: string
 }
+
+export type QuizStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
+
+export interface QuizQuestion {
+  question: string
+  options: string[]
+  correctIndex: number
+  explanation: string
+}
+
+export interface QuizCreated {
+  quizId: string
+  status: QuizStatus
+}
+
+export interface Quiz {
+  quizId: string
+  status: QuizStatus
+  questions?: QuizQuestion[]
+  errorMessage?: string
+}
