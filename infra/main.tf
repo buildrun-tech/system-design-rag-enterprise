@@ -37,6 +37,8 @@ module "ingest_queue" {
   source = "./modules/sqs-queue"
 
   name = "${local.name_prefix}-ingest-queue"
+
+  visibility_timeout_seconds = 180
 }
 
 module "cloudfront_spa" {

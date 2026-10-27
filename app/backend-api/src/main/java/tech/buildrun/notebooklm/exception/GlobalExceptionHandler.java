@@ -28,6 +28,11 @@ public class GlobalExceptionHandler {
         return respond(HttpStatus.NOT_FOUND, "CONVERSATION_NOT_FOUND", e.getMessage());
     }
 
+    @ExceptionHandler(QuizNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleQuizNotFound(QuizNotFoundException e) {
+        return respond(HttpStatus.NOT_FOUND, "QUIZ_NOT_FOUND", e.getMessage());
+    }
+
     @ExceptionHandler(InvalidSourceIdsException.class)
     public ResponseEntity<ErrorResponse> handleInvalidSourceIds(InvalidSourceIdsException e) {
         return respond(HttpStatus.BAD_REQUEST, "INVALID_SOURCE_IDS", e.getMessage());

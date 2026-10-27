@@ -11,6 +11,7 @@ interface NotebookDetail {
   sources: Source[]
 }
 import Navbar from '../components/Navbar'
+import QuizPanel from '../components/QuizPanel'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
 import Card from '../components/ui/Card'
@@ -299,6 +300,14 @@ export default function WorkspacePage() {
               <IconSend size={16} />
             </Button>
           </form>
+        </Card>
+
+        <Card className="section quiz-card">
+          {conversation && token ? (
+            <QuizPanel key={conversation.id} conversationId={conversation.id} token={token} />
+          ) : (
+            <p className="empty-state">Carregando conversa...</p>
+          )}
         </Card>
       </div>
     </div>

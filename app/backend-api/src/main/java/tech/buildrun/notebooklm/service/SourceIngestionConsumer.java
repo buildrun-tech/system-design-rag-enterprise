@@ -38,15 +38,18 @@ public class SourceIngestionConsumer {
     private final SourceRepository sourceRepository;
     private final S3Template s3Template;
     private final VectorStore vectorStore;
+    private final ChunkEnrichmentService chunkEnrichmentService;
     private final String bucketName;
     private final String embeddingModel;
 
     public SourceIngestionConsumer(SourceRepository sourceRepository, S3Template s3Template, VectorStore vectorStore,
+                                    ChunkEnrichmentService chunkEnrichmentService,
                                     @Value("${aws.s3.bucket-name}") String bucketName,
                                     @Value("${spring.ai.openai.embedding.options.model}") String embeddingModel) {
         this.sourceRepository = sourceRepository;
         this.s3Template = s3Template;
         this.vectorStore = vectorStore;
+        this.chunkEnrichmentService = chunkEnrichmentService;
         this.bucketName = bucketName;
         this.embeddingModel = embeddingModel;
     }
@@ -86,7 +89,8 @@ public class SourceIngestionConsumer {
             List<Document> chunks = TokenTextSplitter.builder().withChunkSize(CHUNK_SIZE_TOKENS).build()
                     .apply(extracted);
 
-            List<Document> tagged = chunks.stream()
+            // enrich obrigatório: falha aqui propaga e a source vira FAILED
+            List<Document> tagged = chunkEnrichmentService.enrich(chunks).stream()
                     .map(chunk -> tagWithSourceMetadata(chunk, source))
                     .toList();
 

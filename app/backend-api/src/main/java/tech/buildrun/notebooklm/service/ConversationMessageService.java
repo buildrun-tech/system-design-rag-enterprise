@@ -19,7 +19,6 @@ import tech.buildrun.notebooklm.entity.Conversation;
 import tech.buildrun.notebooklm.entity.ConversationMessage;
 import tech.buildrun.notebooklm.entity.MessageRole;
 import tech.buildrun.notebooklm.entity.Source;
-import tech.buildrun.notebooklm.entity.SourceStatus;
 import tech.buildrun.notebooklm.exception.ConversationNotFoundException;
 import tech.buildrun.notebooklm.repository.ConversationMessageRepository;
 import tech.buildrun.notebooklm.repository.ConversationRepository;
@@ -35,7 +34,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -111,17 +109,7 @@ public class ConversationMessageService {
     }
 
     String buildActiveSourcesFilter(Conversation conversation) {
-        Set<Source> activeSources = conversation.getActiveSources();
-        List<UUID> sourceIds = activeSources.isEmpty()
-                ? sourceRepository.findByNotebookIdAndStatus(conversation.getNotebook().getId(), SourceStatus.READY)
-                        .stream().map(Source::getId).toList()
-                : activeSources.stream().map(Source::getId).toList();
-
-        if (sourceIds.isEmpty()) {
-            return "source_id == 'none'";
-        }
-        String ids = sourceIds.stream().map(id -> "'" + id + "'").collect(Collectors.joining(","));
-        return "source_id in [" + ids + "]";
+        return ActiveSources.filterExpression(ActiveSources.resolveIds(conversation, sourceRepository));
     }
 
     List<CitedSource> buildCitedSources(List<Document> documents) {
