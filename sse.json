@@ -1,0 +1,32 @@
+{
+  "messageId": "67da6334-f576-4474-b4e8-323afb0d7e49",
+  "done": true,
+  "sources": [
+    {
+      "sourceId": "35723643-1053-41eb-a475-ac6f5b88ec9a",
+      "name": "springai.md",
+      "chunks": [
+        {
+          "chunkIndex": 5,
+          "snippet": "Tool Calling Tool calling allows a model to request that application code execute a function. A tool can expose application capabilities such as: ```text getWeather() findCustomer() lookupOrder() searchProducts() createTicket() calculatePrice() ``` Example: ```java class WeatherTools {…"
+        },
+        {
+          "chunkIndex": 5,
+          "snippet": "Tool Calling Tool calling allows a model to request that application code execute a function. A tool can expose application capabilities such as: ```text getWeather() findCustomer() lookupOrder() searchProducts() createTicket() calculatePrice() ``` Example: ```java class WeatherTools {…"
+        },
+        {
+          "chunkIndex": 5,
+          "snippet": "Tool Calling Tool calling allows a model to request that application code execute a function. A tool can expose application capabilities such as: ```text getWeather() findCustomer() lookupOrder() searchProducts() createTicket() calculatePrice() ``` Example: ```java class WeatherTools {…"
+        },
+        {
+          "chunkIndex": 5,
+          "snippet": "Tool Calling Tool calling allows a model to request that application code execute a function. A tool can expose application capabilities such as: ```text getWeather() findCustomer() lookupOrder() searchProducts() createTicket() calculatePrice() ``` Example: ```java class WeatherTools {…"
+        },
+        {
+          "chunkIndex": 5,
+          "snippet": "Tool Calling Tool calling allows a model to request that application code execute a function. A tool can expose application capabilities such as: ```text getWeather() findCustomer() lookupOrder() searchProducts() createTicket() calculatePrice() ``` Example: ```java class WeatherTools {…"
+        }
+      ]
+    }
+  ]
+}

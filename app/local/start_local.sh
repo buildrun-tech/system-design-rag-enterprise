@@ -14,6 +14,9 @@ ADMIN_PASSWORD="123"
 BUCKET_NAME="$(grep -m1 '^S3_BUCKET_NAME=' "$BACKEND_ENV_FILE" 2>/dev/null | cut -d= -f2-)"
 BUCKET_NAME="${BUCKET_NAME:-notebooklm-sources-local}"
 QUEUE_NAME="notebooklm-ingestion-local"
+# Espelha infra/main.tf (ingest_queue): visibility 180s e DLQ após 3 recebimentos.
+QUEUE_VISIBILITY_TIMEOUT="180"
+QUEUE_MAX_RECEIVE_COUNT="3"
 
 if [ ! -f "$FRONTEND_ENV_FILE" ]; then
   echo "$FRONTEND_ENV_FILE não existe — copie app/frontend/.env.example antes de rodar este script" >&2
@@ -86,8 +89,16 @@ else
   aws_local s3 mb "s3://$BUCKET_NAME" >/dev/null
 fi
 
-echo "==> Verificando fila SQS ($QUEUE_NAME)"
+echo "==> Verificando fila SQS ($QUEUE_NAME) e DLQ ($QUEUE_NAME-dlq)"
+DLQ_URL=$(aws_local sqs create-queue --queue-name "$QUEUE_NAME-dlq" --query "QueueUrl" --output text)
+DLQ_ARN=$(aws_local sqs get-queue-attributes --queue-url "$DLQ_URL" --attribute-names QueueArn \
+  --query "Attributes.QueueArn" --output text)
 QUEUE_URL=$(aws_local sqs create-queue --queue-name "$QUEUE_NAME" --query "QueueUrl" --output text)
+# set-queue-attributes (e não create-queue --attributes): idempotente em fila que já existe com outros atributos
+REDRIVE_POLICY="{\"deadLetterTargetArn\":\"$DLQ_ARN\",\"maxReceiveCount\":\"$QUEUE_MAX_RECEIVE_COUNT\"}"
+QUEUE_ATTRIBUTES=$(python3 -c 'import json,sys; print(json.dumps({"VisibilityTimeout": sys.argv[1], "RedrivePolicy": sys.argv[2]}))' \
+  "$QUEUE_VISIBILITY_TIMEOUT" "$REDRIVE_POLICY")
+aws_local sqs set-queue-attributes --queue-url "$QUEUE_URL" --attributes "$QUEUE_ATTRIBUTES"
 
 echo "==> Atualizando $BACKEND_ENV_FILE"
 sed -i \

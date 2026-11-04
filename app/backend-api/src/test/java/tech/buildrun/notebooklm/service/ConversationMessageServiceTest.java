@@ -17,7 +17,12 @@ import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.model.tool.ToolCallingChatOptions;
+import org.springframework.ai.support.ToolCallbacks;
+import tech.buildrun.notebooklm.tool.DateTimeTools;
+import tech.buildrun.notebooklm.tool.EventingToolCallback;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
@@ -467,6 +472,61 @@ class ConversationMessageServiceTest {
             ReflectionTestUtils.setField(message, "id", UUID.randomUUID());
         }
         return message;
+    }
+
+    @Test
+    void sendMessageEmitsToolCallEventsBeforeTokens() throws java.io.IOException {
+        User owner = new User("sub", "owner@test.com", "Owner");
+        Notebook notebook = new Notebook(owner, "Notebook", null);
+        Conversation conversation = new Conversation(notebook);
+        UUID conversationId = UUID.randomUUID();
+        UUID ownerId = UUID.randomUUID();
+        ReflectionTestUtils.setField(conversation, "id", conversationId);
+        when(conversationRepository.findByIdAndNotebookOwnerId(conversationId, ownerId))
+                .thenReturn(Optional.of(conversation));
+        when(conversationMessageRepository.findTop10ByConversationIdOrderByCreatedAtDesc(conversationId))
+                .thenReturn(new ArrayList<>());
+        when(conversationMessageRepository.save(any(ConversationMessage.class)))
+                .thenAnswer(this::assignIdAndReturn);
+
+        // Simula o model do Spring AI: executa as tools registradas com o ToolContext das options.
+        ChatModel toolRunningModel = new ChatModel() {
+            @Override
+            public ChatResponse call(Prompt prompt) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Flux<ChatResponse> stream(Prompt prompt) {
+                ToolCallingChatOptions options = (ToolCallingChatOptions) prompt.getOptions();
+                options.getToolCallbacks().forEach(callback ->
+                        callback.call("{}", new ToolContext(options.getToolContext())));
+                return Flux.just(new ChatResponse(List.of(new Generation(new AssistantMessage("ok")))));
+            }
+
+            @Override
+            public ChatOptions getOptions() {
+                return ToolCallingChatOptions.builder().build();
+            }
+
+            @Override
+            public ChatOptions getDefaultOptions() {
+                return ToolCallingChatOptions.builder().build();
+            }
+        };
+        ChatClient chatClient = ChatClient.builder(toolRunningModel)
+                .defaultToolCallbacks(EventingToolCallback.wrap(ToolCallbacks.from(new DateTimeTools())))
+                .build();
+        ConversationMessageService service = new ConversationMessageService(
+                conversationRepository, conversationMessageRepository, sourceRepository, chatClient,
+                retrievalAugmentationAdvisor, conversationHistoryProvider);
+        SseEmitter emitter = mock(SseEmitter.class);
+
+        service.sendMessage(conversationId, ownerId, "que horas sao?", emitter);
+
+        verify(emitter, timeout(5000)).complete();
+        // tool start + tool end + token + done
+        verify(emitter, org.mockito.Mockito.times(4)).send(any(SseEmitter.SseEventBuilder.class));
     }
 
     private ChatModel fakeChatModelStreaming(AtomicReference<Prompt> capturedPrompt, String... chunks) {

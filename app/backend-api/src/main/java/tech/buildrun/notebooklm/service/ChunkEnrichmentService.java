@@ -8,6 +8,7 @@ import org.springframework.ai.model.transformer.SummaryMetadataEnricher;
 import org.springframework.ai.model.transformer.SummaryMetadataEnricher.SummaryType;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /** Enriquece chunks com {@code excerpt_keywords} e {@code section_summary}; usado na ingestão e no backfill. */
@@ -29,8 +30,21 @@ public class ChunkEnrichmentService {
                 SummaryMetadataEnricher.DEFAULT_SUMMARY_EXTRACT_TEMPLATE, MetadataMode.NONE);
     }
 
-    // ponytail: sequencial (2 chamadas LLM por chunk). Upgrade: lotes paralelos se a ingestão ficar lenta.
     public List<Document> enrich(List<Document> chunks) {
-        return summaryEnricher.apply(keywordEnricher.apply(chunks));
+        return enrich(chunks, () -> { });
+    }
+
+    /**
+     * Enriquece chunk a chunk e avisa {@code onChunkEnriched} a cada um (heartbeat do chamador, ex.: estender o
+     * visibility timeout do SQS). ponytail: sequencial (2 chamadas LLM por chunk).
+     * Upgrade: lotes paralelos se a ingestão ficar lenta, atento ao saldo/limite de créditos do provider.
+     */
+    public List<Document> enrich(List<Document> chunks, Runnable onChunkEnriched) {
+        List<Document> enriched = new ArrayList<>(chunks.size());
+        for (Document chunk : chunks) {
+            enriched.addAll(summaryEnricher.apply(keywordEnricher.apply(new ArrayList<>(List.of(chunk)))));
+            onChunkEnriched.run();
+        }
+        return enriched;
     }
 }

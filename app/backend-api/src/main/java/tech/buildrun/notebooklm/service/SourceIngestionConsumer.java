@@ -1,7 +1,9 @@
 package tech.buildrun.notebooklm.service;
 
 import io.awspring.cloud.s3.S3Template;
+import com.openai.errors.OpenAIServiceException;
 import io.awspring.cloud.sqs.annotation.SqsListener;
+import io.awspring.cloud.sqs.listener.Visibility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -21,6 +23,7 @@ import tech.buildrun.notebooklm.exception.SourceNotFoundException;
 import tech.buildrun.notebooklm.repository.SourceRepository;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 // ponytail: sem essa guarda, contexto Spring que sobe sem fila configurada
@@ -34,6 +37,13 @@ public class SourceIngestionConsumer {
     // ponytail: chunk sem overlap — TokenTextSplitter (Spring AI) nao suporta overlap.
     // Upgrade: splitter custom se overlap entre chunks virar necessidade real.
     private static final int CHUNK_SIZE_TOKENS = 512;
+
+    // Cada chunk enriquecido renova o visibility timeout por este tempo: a mensagem fica invisível enquanto o
+    // consumer trabalha, e some do "in flight" rápido se ele morrer.
+    private static final int VISIBILITY_EXTENSION_SECONDS = 180;
+
+    // Erros do provider que repetir não resolve (crédito/limite, auth, request inválido): ack em vez de redelivery.
+    private static final Set<Integer> PERMANENT_PROVIDER_STATUS = Set.of(400, 401, 402, 403, 404, 422);
 
     private final SourceRepository sourceRepository;
     private final S3Template s3Template;
@@ -56,7 +66,7 @@ public class SourceIngestionConsumer {
 
     @Transactional
     @SqsListener("${aws.sqs.ingestion-queue-url}")
-    public void process(IngestionMessage message) {
+    public void process(IngestionMessage message, Visibility visibility) {
         MDC.put("requestId", message.requestId() != null ? message.requestId() : UUID.randomUUID().toString());
         if (message.userId() != null) {
             MDC.put("userId", message.userId().toString());
@@ -64,7 +74,7 @@ public class SourceIngestionConsumer {
         long start = System.nanoTime();
         log.info("Consumer in: SourceIngestionConsumer.process message={}", message);
         try {
-            ingest(message.sourceId());
+            ingest(message.sourceId(), visibility);
             log.info("Consumer out: SourceIngestionConsumer.process sourceId={} status={} durationMs={}",
                     message.sourceId(), SourceStatus.READY, (System.nanoTime() - start) / 1_000_000);
         } catch (Exception e) {
@@ -73,15 +83,25 @@ public class SourceIngestionConsumer {
             // marca FAILED em transacao propria: a transacao de ingest() ja fez
             // rollback, entao o status so fica visivel se persistido a parte.
             markFailed(message.sourceId(), e.getMessage());
+            if (isPermanentProviderError(e)) {
+                // sem relançar: a mensagem é ack'ada e a source fica FAILED, em vez de ficar reentregando
+                log.warn("Non-retryable provider error, message acknowledged: sourceId={}", message.sourceId());
+                return;
+            }
             throw e;
         } finally {
             MDC.clear();
         }
     }
 
-    void ingest(UUID sourceId) {
+    void ingest(UUID sourceId, Visibility visibility) {
         try {
             Source source = sourceRepository.findById(sourceId).orElseThrow(SourceNotFoundException::new);
+            if (source.getStatus() == SourceStatus.READY) {
+                // redelivery de mensagem já processada (ack perdido): reprocessar duplicaria os chunks
+                log.info("Source already READY, skipping: sourceId={}", sourceId);
+                return;
+            }
             source.setStatus(SourceStatus.PROCESSING);
 
             var resource = s3Template.download(bucketName, source.getS3Key());
@@ -90,12 +110,14 @@ public class SourceIngestionConsumer {
                     .apply(extracted);
 
             // enrich obrigatório: falha aqui propaga e a source vira FAILED
-            List<Document> tagged = chunkEnrichmentService.enrich(chunks).stream()
+            List<Document> tagged = chunkEnrichmentService.enrich(chunks, () -> extendVisibility(visibility)).stream()
                     .map(chunk -> tagWithSourceMetadata(chunk, source))
                     .toList();
 
             log.info("Source ingestion: sourceId={} s3Key={} extractedDocs={} chunks={}",
                     sourceId, source.getS3Key(), extracted.size(), tagged.size());
+            // idempotente: remove chunks de execuções anteriores desta source antes de gravar
+            vectorStore.delete("source_id == '%s'".formatted(sourceId));
             vectorStore.add(tagged);
             source.setStatus(SourceStatus.READY);
         } catch (SourceNotFoundException e) {
@@ -107,10 +129,30 @@ public class SourceIngestionConsumer {
     }
 
     void markFailed(UUID sourceId, String errorMessage) {
-        sourceRepository.findById(sourceId).ifPresent(source -> {
+        // READY nunca regride: uma entrega duplicada que falha não pode invalidar uma ingestão já concluída
+        sourceRepository.findById(sourceId).filter(source -> source.getStatus() != SourceStatus.READY).ifPresent(source -> {
             source.setStatus(SourceStatus.FAILED);
             source.setErrorMessage(errorMessage);
         });
+    }
+
+    private void extendVisibility(Visibility visibility) {
+        if (visibility == null) return;
+        try {
+            visibility.changeTo(VISIBILITY_EXTENSION_SECONDS);
+        } catch (RuntimeException e) {
+            log.warn("Could not extend SQS visibility timeout", e);
+        }
+    }
+
+    static boolean isPermanentProviderError(Throwable error) {
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof OpenAIServiceException provider
+                    && PERMANENT_PROVIDER_STATUS.contains(provider.statusCode())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Document tagWithSourceMetadata(Document chunk, Source source) {

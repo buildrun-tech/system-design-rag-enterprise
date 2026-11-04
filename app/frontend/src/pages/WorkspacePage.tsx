@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useActiveAuth } from '../auth/useActiveAuth'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import { apiFetch, handleUnauthorized } from '../api/client'
-import type { CitedSource, Conversation, ConversationMessage, Source } from '../api/types'
+import type { CitedSource, Conversation, ConversationMessage, Source, ToolCall } from '../api/types'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -11,6 +11,10 @@ interface NotebookDetail {
   sources: Source[]
 }
 import Navbar from '../components/Navbar'
+import ToolTimeline from '../components/ToolTimeline'
+import SseDebugPanel, { type SseLogEntry } from '../components/SseDebugPanel'
+import { useDevMode } from '../dev/useDevMode'
+import Modal from '../components/Modal'
 import QuizPanel from '../components/QuizPanel'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
@@ -24,6 +28,14 @@ const PENDING_STATUSES = new Set(['PENDING', 'PROCESSING'])
 interface ChatMessage extends ConversationMessage {
   streaming?: boolean
   failed?: boolean
+  toolCalls?: ToolCall[]
+}
+
+// start insere (ordem de chegada); end/error mesclam no mesmo id mantendo posição, offset, label e input do start
+function upsertToolCall(toolCalls: ToolCall[] = [], toolCall: ToolCall, at: number): ToolCall[] {
+  const existing = toolCalls.find((item) => item.id === toolCall.id)
+  const merged = { ...existing, ...toolCall, at: existing?.at ?? at }
+  return existing ? toolCalls.map((item) => (item.id === merged.id ? merged : item)) : [...toolCalls, merged]
 }
 
 const API_BASE_URL = config.apiBaseUrl
@@ -36,6 +48,9 @@ export default function WorkspacePage() {
   const [sources, setSources] = useState<Source[]>([])
   const [sourceError, setSourceError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [quizOpen, setQuizOpen] = useState(false)
+  const [devMode, toggleDevMode] = useDevMode()
+  const [sseLog, setSseLog] = useState<SseLogEntry[]>([])
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [conversation, setConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -156,6 +171,12 @@ export default function WorkspacePage() {
     const controller = new AbortController()
     abortRef.current = controller
 
+    const streamStart = performance.now()
+    const elapsed = () => performance.now() - streamStart
+    const log = (kind: SseLogEntry['kind'], raw: string) =>
+      setSseLog((current) => [...current, { at: elapsed(), kind, raw }].slice(-300))
+    setSseLog([])
+
     await fetchEventSource(`${API_BASE_URL}/api/v1/conversations/${conversation.id}/messages`, {
       method: 'POST',
       headers: {
@@ -166,6 +187,7 @@ export default function WorkspacePage() {
       signal: controller.signal,
       openWhenHidden: true,
       async onopen(response) {
+        log('open', `HTTP ${response.status} ${response.headers.get('content-type') ?? ''}`)
         if (response.status === 401) {
           handleUnauthorized()
         }
@@ -174,18 +196,24 @@ export default function WorkspacePage() {
         }
       },
       onmessage(event) {
-        const data = JSON.parse(event.data) as { token?: string; done?: boolean; messageId?: string; sources?: CitedSource[]; error?: string }
+        log('event', event.data)
+        const data = JSON.parse(event.data) as { token?: string; done?: boolean; messageId?: string; sources?: CitedSource[]; error?: string; toolCall?: ToolCall }
         setMessages((current) =>
           current.map((message) => {
             if (message.id !== assistantMessage.id) return message
             if (data.error) return { ...message, streaming: false, failed: true }
+            if (data.toolCall) return { ...message, toolCalls: upsertToolCall(message.toolCalls, data.toolCall, elapsed()) }
             if (data.token) return { ...message, content: message.content + data.token }
             if (data.done) return { ...message, id: data.messageId ?? message.id, sources: data.sources ?? [], streaming: false }
             return message
           }),
         )
       },
+      onclose() {
+        log('close', '')
+      },
       onerror(err) {
+        log('error', String(err))
         setMessages((current) =>
           current.map((message) =>
             message.id === assistantMessage.id ? { ...message, streaming: false, failed: true } : message,
@@ -254,6 +282,17 @@ export default function WorkspacePage() {
                   ))}
                 </select>
               )}
+              <Button onClick={() => setQuizOpen(true)} disabled={!conversation}>
+                Quiz
+              </Button>
+              <button
+                className={`icon-button icon-button--text${devMode ? ' icon-button--active' : ''}`}
+                title="Dev mode: inspecionar eventos SSE"
+                aria-pressed={devMode}
+                onClick={toggleDevMode}
+              >
+                DEV
+              </button>
               <button className="icon-button" title="Novo chat" onClick={handleNewChat}>
                 <IconPlus size={16} />
               </button>
@@ -263,7 +302,10 @@ export default function WorkspacePage() {
             {messages.map((message) => (
               <div key={message.id} className={`message-bubble message-bubble--${message.role}`}>
                 <span className="message-role">{message.role === 'user' ? 'Você' : 'Assistente'}</span>
-                {message.streaming && message.content === '' ? (
+                {message.toolCalls && message.toolCalls.length > 0 && (
+                  <ToolTimeline toolCalls={message.toolCalls} dev={devMode} />
+                )}
+                {message.streaming && message.content === '' && !message.toolCalls?.length ? (
                   <IconSpinner size={16} />
                 ) : (
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
@@ -289,6 +331,7 @@ export default function WorkspacePage() {
               </div>
             ))}
           </div>
+          {devMode && <SseDebugPanel entries={sseLog} onClear={() => setSseLog([])} />}
           <form onSubmit={handleSend} className="toolbar">
             <Input
               className="flex-1"
@@ -302,14 +345,11 @@ export default function WorkspacePage() {
           </form>
         </Card>
 
-        <Card className="section quiz-card">
-          {conversation && token ? (
-            <QuizPanel key={conversation.id} conversationId={conversation.id} token={token} />
-          ) : (
-            <p className="empty-state">Carregando conversa...</p>
-          )}
-        </Card>
       </div>
+
+      <Modal open={quizOpen} onClose={() => setQuizOpen(false)} title="Quiz">
+        {conversation && token && <QuizPanel conversationId={conversation.id} token={token} />}
+      </Modal>
     </div>
   )
 }

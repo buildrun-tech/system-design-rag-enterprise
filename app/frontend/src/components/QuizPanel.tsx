@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ApiError, apiFetch } from '../api/client'
 import type { Quiz, QuizCreated, QuizQuestion } from '../api/types'
 import Button from './ui/Button'
@@ -6,16 +6,16 @@ import { IconSpinner } from './icons'
 
 const POLL_INTERVAL_MS = 2000
 
-type Phase = 'idle' | 'generating' | 'ready' | 'failed'
+type Phase = 'generating' | 'ready' | 'failed'
 
 interface QuizPanelProps {
   conversationId: string
   token: string
 }
 
-// Montado com key={conversationId}: trocar de conversa descarta quiz e polling.
+// Montado só enquanto o modal está aberto: gera ao abrir, fechar descarta quiz e polling.
 export default function QuizPanel({ conversationId, token }: QuizPanelProps) {
-  const [phase, setPhase] = useState<Phase>('idle')
+  const [phase, setPhase] = useState<Phase>('generating')
   const [quizId, setQuizId] = useState<string | null>(null)
   const [questions, setQuestions] = useState<QuizQuestion[]>([])
   const [answers, setAnswers] = useState<Record<number, number>>({})
@@ -41,6 +41,14 @@ export default function QuizPanel({ conversationId, token }: QuizPanelProps) {
     return () => clearInterval(interval)
   }, [phase, quizId, conversationId, token])
 
+  const started = useRef(false)
+  useEffect(() => {
+    if (started.current) return // StrictMode monta 2x em dev; evita 2 quizzes
+    started.current = true
+    handleGenerate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   async function handleGenerate() {
     setError(null)
     setAnswers({})
@@ -62,23 +70,17 @@ export default function QuizPanel({ conversationId, token }: QuizPanelProps) {
 
   return (
     <div className="quiz-panel">
-      <div className="section-header">
-        <h2 className="section-title">Quiz</h2>
-      </div>
-
-      {phase !== 'ready' && (
-        <Button onClick={handleGenerate} disabled={phase === 'generating'}>
-          {phase === 'generating' ? (
-            <>
-              <IconSpinner size={16} /> Gerando quiz...
-            </>
-          ) : (
-            'Gerar quiz'
-          )}
-        </Button>
+      {phase === 'generating' && (
+        <p className="empty-state">
+          <IconSpinner size={16} /> Gerando quiz com as fontes ativas...
+        </p>
       )}
-      {phase === 'idle' && <p className="empty-state">Gere um quiz com base nas fontes ativas da conversa.</p>}
-      {phase === 'failed' && <p role="alert">{error}</p>}
+      {phase === 'failed' && (
+        <>
+          <p role="alert">{error}</p>
+          <Button onClick={handleGenerate}>Tentar de novo</Button>
+        </>
+      )}
 
       {phase === 'ready' && (
         <>

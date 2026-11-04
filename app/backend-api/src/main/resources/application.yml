@@ -23,6 +23,9 @@ spring:
       api-key: ${SPRING_AI_OPENAI_API_KEY:}
       chat:
         model: ${SPRING_AI_OPENAI_CHAT_OPTIONS_MODEL:}
+        # sem teto o OpenRouter reserva o máximo do modelo (65536) por request e devolve 402 com a chave perto
+        # do limite. Inclui tokens de reasoning (gpt-5*): não baixar demais.
+        max-completion-tokens: ${SPRING_AI_OPENAI_CHAT_MAX_COMPLETION_TOKENS:8192}
       embedding:
         options:
           model: ${SPRING_AI_OPENAI_EMBEDDING_OPTIONS_MODEL:openai/text-embedding-3-large}
