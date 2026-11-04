@@ -42,6 +42,19 @@ export interface CitedSource {
   chunks: CitedChunk[]
 }
 
+export type ToolCallStatus = 'start' | 'end' | 'error'
+
+export interface ToolCall {
+  id: string
+  name: string
+  label?: string
+  status: ToolCallStatus
+  input?: string
+  result?: string
+  durationMs?: number
+  at?: number // client-only: ms desde o início do stream, quando o start chegou
+}
+
 export interface ConversationMessage {
   id: string
   role: MessageRole

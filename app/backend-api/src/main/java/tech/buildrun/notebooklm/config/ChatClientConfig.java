@@ -9,7 +9,9 @@ import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.ai.support.ToolCallbacks;
 import tech.buildrun.notebooklm.tool.DateTimeTools;
+import tech.buildrun.notebooklm.tool.EventingToolCallback;
 
 @Configuration
 public class ChatClientConfig {
@@ -18,8 +20,11 @@ public class ChatClientConfig {
 
     @Bean
     public ChatClient chatClient(ChatClient.Builder chatClientBuilder) {
-        // defaultTools só aqui: os builders dos transformers (clone) não precisam de tools.
-        return chatClientBuilder.defaultTools(new DateTimeTools()).build();
+        // tools só aqui: os builders dos transformers (clone) não precisam de tools.
+        // EventingToolCallback publica start/end/error de cada tool no listener da request (SSE).
+        return chatClientBuilder
+                .defaultToolCallbacks(EventingToolCallback.wrap(ToolCallbacks.from(new DateTimeTools())))
+                .build();
     }
 
     @Bean

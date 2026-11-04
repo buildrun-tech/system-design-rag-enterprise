@@ -27,7 +27,8 @@ import tech.buildrun.notebooklm.repository.SourceRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import tech.buildrun.notebooklm.tool.DateTimeTools;
+import tech.buildrun.notebooklm.tool.EventingToolCallback;
+import tech.buildrun.notebooklm.tool.ToolEvent;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 @Service
@@ -98,6 +100,7 @@ public class ConversationMessageService {
                 .messages(promptMessages)
                 .advisors(a -> a.advisors(retrievalAugmentationAdvisor)
                         .param(VectorStoreDocumentRetriever.FILTER_EXPRESSION, filterExpression))
+                .toolContext(Map.of(EventingToolCallback.LISTENER_KEY, (Consumer<ToolEvent>) stream::onToolEvent))
                 .stream()
                 .chatResponse()
                 .subscribeOn(Schedulers.boundedElastic())
@@ -179,6 +182,16 @@ public class ConversationMessageService {
                 // A failed transport cannot carry an error event either.
                 cancel();
                 emitter.completeWithError(error);
+            }
+        }
+
+        private void onToolEvent(ToolEvent event) {
+            if (closed.get()) return;
+            try {
+                emitter.send(SseEmitter.event().data(Map.of("toolCall", event)));
+            } catch (IOException | IllegalStateException ignored) {
+                // Não cancela: interromperia a thread da tool. O próximo token/done falha pelo mesmo
+                // transporte e encerra o stream.
             }
         }
 
