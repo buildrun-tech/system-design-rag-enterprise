@@ -19,6 +19,8 @@ export default function QuizPanel({ conversationId, token }: QuizPanelProps) {
   const [quizId, setQuizId] = useState<string | null>(null)
   const [questions, setQuestions] = useState<QuizQuestion[]>([])
   const [answers, setAnswers] = useState<Record<number, number>>({})
+  const [current, setCurrent] = useState(0)
+  const [finished, setFinished] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -52,6 +54,8 @@ export default function QuizPanel({ conversationId, token }: QuizPanelProps) {
   async function handleGenerate() {
     setError(null)
     setAnswers({})
+    setCurrent(0)
+    setFinished(false)
     setQuestions([])
     setPhase('generating')
     try {
@@ -82,56 +86,89 @@ export default function QuizPanel({ conversationId, token }: QuizPanelProps) {
         </>
       )}
 
-      {phase === 'ready' && (
-        <>
-          {questions.map((question, index) => {
-            const chosen = answers[index]
-            const isAnswered = chosen !== undefined
-            return (
-              <div className="quiz-question" key={index}>
-                <p className="quiz-question__title">
-                  {index + 1}. {question.question}
-                </p>
-                <div className="quiz-options" role="group" aria-label={`Pergunta ${index + 1}`}>
-                  {question.options.map((option, optionIndex) => {
-                    const state = !isAnswered
-                      ? ''
-                      : optionIndex === question.correctIndex
-                        ? ' quiz-option--correct'
-                        : optionIndex === chosen
-                          ? ' quiz-option--wrong'
-                          : ''
-                    return (
-                      <button
-                        key={optionIndex}
-                        className={`quiz-option${state}`}
-                        disabled={isAnswered}
-                        onClick={() => setAnswers((current) => ({ ...current, [index]: optionIndex }))}
-                      >
-                        {option}
-                      </button>
-                    )
-                  })}
-                </div>
-                {isAnswered && (
-                  <p className="quiz-explanation">
-                    <strong>{chosen === question.correctIndex ? 'Correto. ' : 'Incorreto. '}</strong>
-                    {question.explanation}
-                  </p>
-                )}
-              </div>
-            )
-          })}
-          {answered === questions.length && (
-            <div className="quiz-result">
-              <p>
-                Pontuação: {score} de {questions.length}
-              </p>
-              <Button onClick={handleGenerate}>Gerar novo quiz</Button>
+      {phase === 'ready' && (() => {
+        const total = questions.length
+        const progress = finished ? 100 : (answered / total) * 100
+        const question = questions[current]
+        const chosen = answers[current]
+        const isAnswered = chosen !== undefined
+        return (
+          <>
+            <div
+              className="quiz-progress"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={total}
+              aria-valuenow={finished ? total : answered}
+            >
+              <div className="quiz-progress__bar" style={{ width: `${progress}%` }} />
             </div>
-          )}
-        </>
-      )}
+
+            {finished ? (
+              <div className="quiz-result">
+                <p className="quiz-question__title">
+                  Resultado: {score} de {total} ({Math.round((score / total) * 100)}%)
+                </p>
+                <div className="toolbar">
+                  <Button variant="secondary" onClick={() => { setFinished(false); setCurrent(0) }}>
+                    Revisar respostas
+                  </Button>
+                  <Button onClick={handleGenerate}>Gerar novo quiz</Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="quiz-question">
+                  <p className="quiz-question__title">
+                    {current + 1}/{total}. {question.question}
+                  </p>
+                  <div className="quiz-options" role="group" aria-label={`Pergunta ${current + 1}`}>
+                    {question.options.map((option, optionIndex) => {
+                      const state = !isAnswered
+                        ? ''
+                        : optionIndex === question.correctIndex
+                          ? ' quiz-option--correct'
+                          : optionIndex === chosen
+                            ? ' quiz-option--wrong'
+                            : ''
+                      return (
+                        <button
+                          key={optionIndex}
+                          className={`quiz-option${state}`}
+                          disabled={isAnswered}
+                          onClick={() => setAnswers((prev) => ({ ...prev, [current]: optionIndex }))}
+                        >
+                          {option}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {isAnswered && (
+                    <p className="quiz-explanation">
+                      <strong>{chosen === question.correctIndex ? 'Correto. ' : 'Incorreto. '}</strong>
+                      {question.explanation}
+                    </p>
+                  )}
+                </div>
+                <div className="toolbar quiz-nav">
+                  <Button variant="secondary" disabled={current === 0} onClick={() => setCurrent(current - 1)}>
+                    Anterior
+                  </Button>
+                  {current < total - 1 ? (
+                    <Button variant="secondary" onClick={() => setCurrent(current + 1)}>
+                      Próxima
+                    </Button>
+                  ) : (
+                    <Button disabled={answered < total} onClick={() => setFinished(true)}>
+                      Ver resultado
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+          </>
+        )
+      })()}
     </div>
   )
 }

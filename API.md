@@ -380,10 +380,13 @@ data: {"done": true, "messageId": "aa5d3955-j74g-96i9-f261-991100995555", "sourc
 > Cada evento SSE é uma linha `data: <json>\n\n`.
 > O evento final `{"done": true}` inclui o `messageId` da mensagem persistida e `sources`: uma entrada por source usada no RAG (ordem de relevância), cada uma com os `chunks` recuperados (`chunkIndex` + `snippet` truncado em ~300 caracteres). `sources` é `[]` quando nenhum chunk foi recuperado. Clientes que ignoram o campo continuam compatíveis.
 > Erros de stream (LLM timeout, etc.) são enviados como `data: {"error": "STREAM_ERROR"}` antes de fechar.
-> Quando o LLM aciona uma tool, o stream carrega eventos de ciclo de vida intercalados com os `token`, na ordem em que ocorrem:
-> `data: {"toolCall": {"id": "...", "name": "currentDateTime", "label": "Retorna a data e hora atuais (fuso America/Sao_Paulo) em formato ISO-8601", "status": "start", "input": "{}"}}` antes da execução e
-> `data: {"toolCall": {"id": "...", "name": "currentDateTime", "label": "...", "status": "end", "result": "2026-11-03T21:11:19-03:00", "durationMs": 3}}` depois (`status: "error"` se a tool falhar; `result` traz a mensagem do erro).
-> `start` e `end`/`error` da mesma execução compartilham o `id`. `label` é a primeira frase da descrição da tool (fallback: `name`); `input` só vem em `start`; `result` e `durationMs` só em `end`/`error`; `result` é truncado em 2000 caracteres. Clientes que ignoram a chave `toolCall` continuam compatíveis.
+> O stream carrega eventos `toolCall` de progresso intercalados com os `token`, na ordem em que ocorrem. Todo stream começa com o passo `retrieval` (busca nas fontes):
+> `data: {"toolCall": {"id": "...", "name": "retrieval", "label": "Buscando nas suas fontes", "status": "start"}}` ao iniciar e
+> `data: {"toolCall": {"id": "...", "name": "retrieval", "label": "Buscando nas suas fontes", "status": "end", "durationMs": 420, "summary": "4 trechos encontrados em 2 fontes"}}` antes do primeiro `token` (`summary` é `"Nenhum trecho relevante encontrado"` quando nada é recuperado).
+> Quando o LLM aciona uma tool:
+> `data: {"toolCall": {"id": "...", "name": "currentDateTime", "label": "Consultando data e hora", "status": "start", "input": "{}"}}` antes da execução e
+> `data: {"toolCall": {"id": "...", "name": "currentDateTime", "label": "Consultando data e hora", "status": "end", "result": "2026-11-03T21:11:19-03:00", "durationMs": 3, "summary": "Data e hora consultadas"}}` depois (`status: "error"` se a tool falhar; `result` traz a mensagem do erro e `summary` é "Não foi possível consultar data e hora").
+> `start` e `end`/`error` da mesma execução compartilham o `id`. `label` e `summary` são frases em português para o usuário final; tools sem textos cadastrados usam a primeira frase da descrição como `label` (fallback: `name`) e omitem `summary`. `input`/`result` são técnicos (uso do modo DEV): `input` só vem em `start`; `result` e `durationMs` só em `end`/`error`; `result` é truncado em 2000 caracteres. Clientes que ignoram a chave `toolCall` ou o campo `summary` continuam compatíveis.
 
 **Erros (retornados antes de iniciar o stream):**
 - `400 Bad Request` — `content` ausente

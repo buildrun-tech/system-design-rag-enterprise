@@ -48,6 +48,7 @@ export interface ToolCall {
   id: string
   name: string
   label?: string
+  summary?: string // frase pronta para o usuário final
   status: ToolCallStatus
   input?: string
   result?: string
