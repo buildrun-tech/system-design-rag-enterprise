@@ -9,13 +9,14 @@ export interface SseLogEntry {
 interface SseDebugPanelProps {
   entries: SseLogEntry[]
   onClear: () => void
+  onClose: () => void
 }
 
 function format(entry: SseLogEntry) {
   return `+${(entry.at / 1000).toFixed(3)}s ${entry.kind.toUpperCase()} ${entry.raw}`
 }
 
-export default function SseDebugPanel({ entries, onClear }: SseDebugPanelProps) {
+export default function SseDebugPanel({ entries, onClear, onClose }: SseDebugPanelProps) {
   const endRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -31,6 +32,9 @@ export default function SseDebugPanel({ entries, onClear }: SseDebugPanelProps) 
         </button>
         <button type="button" className="sse-debug__action" onClick={onClear}>
           Limpar
+        </button>
+        <button type="button" className="sse-debug__action" onClick={onClose} title="Fechar">
+          ×
         </button>
       </div>
       <div className="sse-debug__log">

@@ -3,7 +3,7 @@ package tech.buildrun.notebooklm.config;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-import tech.buildrun.notebooklm.security.CurrentUserArgumentResolver;
+import tech.buildrun.notebooklm.adapter.in.web.security.CurrentUserArgumentResolver;
 
 import java.util.List;
 

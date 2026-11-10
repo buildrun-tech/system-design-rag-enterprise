@@ -15,6 +15,7 @@ import ToolTimeline from '../components/ToolTimeline'
 import SseDebugPanel, { type SseLogEntry } from '../components/SseDebugPanel'
 import { useDevMode } from '../dev/useDevMode'
 import Modal from '../components/Modal'
+import MessageSources from '../components/MessageSources'
 import QuizPanel from '../components/QuizPanel'
 import Button from '../components/ui/Button'
 import Input from '../components/ui/Input'
@@ -48,7 +49,10 @@ export default function WorkspacePage() {
   const [sources, setSources] = useState<Source[]>([])
   const [sourceError, setSourceError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
-  const [quizOpen, setQuizOpen] = useState(false)
+  const [quizStep, setQuizStep] = useState<'closed' | 'confirm' | 'open'>('closed')
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const actionsRef = useRef<HTMLDetailsElement>(null)
+  const chatRef = useRef<HTMLDivElement>(null)
   const [devMode, toggleDevMode] = useDevMode()
   const [sseLog, setSseLog] = useState<SseLogEntry[]>([])
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -128,6 +132,12 @@ export default function WorkspacePage() {
 
   useEffect(() => () => abortRef.current?.abort(), [])
 
+  // acompanha o stream só se o usuário já está perto do fim (não briga com scroll manual)
+  useEffect(() => {
+    const el = chatRef.current
+    if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 120) el.scrollTop = el.scrollHeight
+  }, [messages])
+
   async function handleSwitchConversation(target: Conversation) {
     if (!token || target.id === conversation?.id) return
     abortRef.current?.abort()
@@ -146,6 +156,22 @@ export default function WorkspacePage() {
     setConversations((current) => [created, ...current])
     setConversation(created)
     setMessages([])
+  }
+
+  async function handleDeleteConversation() {
+    if (!conversation || !token || !notebookId) return
+    const deletedId = conversation.id
+    abortRef.current?.abort()
+    setDeleteConfirmOpen(false)
+    await apiFetch<void>(`/api/v1/notebooks/${notebookId}/conversations/${deletedId}`, token, { method: 'DELETE' })
+    const remaining = conversations.filter((item) => item.id !== deletedId)
+    if (remaining.length === 0) {
+      await handleNewChat()
+      setConversations((current) => current.filter((item) => item.id !== deletedId))
+    } else {
+      setConversations(remaining)
+      await handleSwitchConversation(remaining[0])
+    }
   }
 
   async function handleSend(event: React.FormEvent) {
@@ -230,6 +256,14 @@ export default function WorkspacePage() {
         <button className="icon-button" title="Voltar" onClick={() => navigate('/notebooks')}>
           <IconArrowLeft size={16} />
         </button>
+        <button
+          className={`icon-button icon-button--text${devMode ? ' icon-button--active' : ''}`}
+          title="Dev mode: inspecionar eventos SSE"
+          aria-pressed={devMode}
+          onClick={toggleDevMode}
+        >
+          DEV
+        </button>
       </Navbar>
 
       <div className="page-body workspace-grid">
@@ -266,72 +300,67 @@ export default function WorkspacePage() {
           <div className="section-header">
             <h2 className="section-title">Chat</h2>
             <div className="toolbar">
-              {conversations.length > 1 && (
-                <select
-                  className="conversation-select"
-                  value={conversation?.id ?? ''}
-                  onChange={(event) => {
-                    const target = conversations.find((item) => item.id === event.target.value)
-                    if (target) handleSwitchConversation(target)
-                  }}
-                >
-                  {conversations.map((item, index) => (
-                    <option key={item.id} value={item.id}>
-                      {item.preview || `Conversa ${conversations.length - index}`}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <Button onClick={() => setQuizOpen(true)} disabled={!conversation}>
-                Quiz
-              </Button>
-              <button
-                className={`icon-button icon-button--text${devMode ? ' icon-button--active' : ''}`}
-                title="Dev mode: inspecionar eventos SSE"
-                aria-pressed={devMode}
-                onClick={toggleDevMode}
+              <select
+                className="conversation-select"
+                value={conversation?.id ?? ''}
+                onChange={(event) => {
+                  const target = conversations.find((item) => item.id === event.target.value)
+                  if (target) handleSwitchConversation(target)
+                }}
               >
-                DEV
-              </button>
+                {conversations.map((item, index) => (
+                  <option key={item.id} value={item.id}>
+                    {item.preview || `Conversa ${conversations.length - index}`}
+                  </option>
+                ))}
+              </select>
+              <details className="actions-menu" ref={actionsRef}>
+                <summary className="ui-button ui-button--secondary">Ações ▾</summary>
+                <div className="actions-menu-list">
+                  <button
+                    disabled={!conversation}
+                    onClick={() => {
+                      actionsRef.current?.removeAttribute('open')
+                      setQuizStep('confirm')
+                    }}
+                  >
+                    Quiz
+                  </button>
+                  <button
+                    disabled={!conversation}
+                    onClick={() => {
+                      actionsRef.current?.removeAttribute('open')
+                      setDeleteConfirmOpen(true)
+                    }}
+                  >
+                    Excluir conversa
+                  </button>
+                </div>
+              </details>
               <button className="icon-button" title="Novo chat" onClick={handleNewChat}>
                 <IconPlus size={16} />
               </button>
             </div>
           </div>
-          <div className="chat-messages">
+          <div className="chat-messages" ref={chatRef}>
             {messages.map((message) => (
               <div key={message.id} className={`message-bubble message-bubble--${message.role}`}>
                 <span className="message-role">{message.role === 'user' ? 'Você' : 'Assistente'}</span>
                 {message.toolCalls && message.toolCalls.length > 0 && (
-                  <ToolTimeline toolCalls={message.toolCalls} dev={devMode} />
+                  <ToolTimeline toolCalls={message.toolCalls} streaming={message.streaming} dev={devMode} />
                 )}
-                {message.streaming && message.content === '' && !message.toolCalls?.length ? (
-                  <IconSpinner size={16} />
+                {message.streaming && message.content === '' ? (
+                  !message.toolCalls?.some((item) => item.status === 'start') && (
+                    <span className="shimmer">{message.toolCalls?.length ? 'Escrevendo resposta…' : 'Pensando…'}</span>
+                  )
                 ) : (
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
                 )}
                 {message.failed ? ' (falha no envio, tente novamente)' : ''}
-                {message.sources && message.sources.length > 0 && (
-                  <div className="message-sources">
-                    <span className="message-sources__label">Fontes</span>
-                    {message.sources.map((source) => (
-                      <span key={source.sourceId} className="source-chip" tabIndex={0}>
-                        {source.name}
-                        <span role="tooltip" className="source-chip__preview">
-                          {source.chunks.map((chunk) => (
-                            <span key={chunk.chunkIndex} className="source-chip__snippet">
-                              {chunk.snippet}
-                            </span>
-                          ))}
-                        </span>
-                      </span>
-                    ))}
-                  </div>
-                )}
+                {message.sources && message.sources.length > 0 && <MessageSources sources={message.sources} />}
               </div>
             ))}
           </div>
-          {devMode && <SseDebugPanel entries={sseLog} onClear={() => setSseLog([])} />}
           <form onSubmit={handleSend} className="toolbar">
             <Input
               className="flex-1"
@@ -347,8 +376,30 @@ export default function WorkspacePage() {
 
       </div>
 
-      <Modal open={quizOpen} onClose={() => setQuizOpen(false)} title="Quiz">
+      {devMode && (
+        <aside className="debug-drawer">
+          <SseDebugPanel entries={sseLog} onClear={() => setSseLog([])} onClose={toggleDevMode} />
+        </aside>
+      )}
+
+      <Modal open={quizStep === 'confirm'} onClose={() => setQuizStep('closed')} title="Gerar quiz">
+        <p>Gerar um quiz com base nesta conversa?</p>
+        <div className="toolbar">
+          <Button onClick={() => setQuizStep('closed')}>Cancelar</Button>
+          <Button onClick={() => setQuizStep('open')}>Gerar</Button>
+        </div>
+      </Modal>
+
+      <Modal open={quizStep === 'open'} onClose={() => setQuizStep('closed')} title="Quiz">
         {conversation && token && <QuizPanel conversationId={conversation.id} token={token} />}
+      </Modal>
+
+      <Modal open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} title="Excluir conversa">
+        <p>Excluir esta conversa e todas as mensagens? Não dá para desfazer.</p>
+        <div className="toolbar">
+          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancelar</Button>
+          <Button onClick={handleDeleteConversation}>Excluir</Button>
+        </div>
       </Modal>
     </div>
   )

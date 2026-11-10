@@ -221,3 +221,26 @@ Não há rollback automático. Re-apontar pra versão anterior:
 
 - **Backend**: `aws ecs update-service --cluster <cluster> --service <service> --task-definition <ARN da revisão anterior>` (revisões antigas ficam registradas), ou re-rodar o job de deploy do commit anterior (imagem `<sha>-prod` continua no ECR).
 - **Frontend**: re-rodar o workflow `frontend` do commit anterior (artifact vale por 7 dias), ou `aws s3 sync` de um `dist/` baixado do run antigo + `create-invalidation`.
+
+## 5. Arquitetura do backend (hexagonal)
+
+`app/backend-api`, pacote `tech.buildrun.notebooklm`. Regra de dependência: `adapter` e `config` dependem de `core`; `core` não depende de nada externo (Spring, JPA, AWS, Spring AI, Jackson). Verificado por `HexagonalArchitectureTest` (ArchUnit).
+
+```
+tech.buildrun.notebooklm
+├── core
+│   ├── domain/        entidades e regras (Notebook, Source, Conversation, Quiz, User...), sem setters (Tell, Don't Ask)
+│   ├── port/in/       casos de uso expostos (<Verbo><Objeto>Port)
+│   ├── port/out/      I/O que o core precisa (persistence, FileStorage, IngestionQueue, ChatCompletion, ...)
+│   └── usecase/       uma classe por caso de uso (<Verbo><Objeto>UseCase), implementa um port/in
+├── adapter
+│   ├── in/web/        controller, dto, mapper, sse, security, error, logging
+│   ├── in/messaging/  SqsIngestionListener
+│   └── out/           persistence (JpaEntity + mapper + RepositoryAdapter), storage (S3), queue (SQS),
+│                      vector (pgvector), ai (OpenAI, Tika, enrichment, tools), async
+└── config/            wiring: beans dos use cases, Security, WebMvc, ChatClient
+```
+
+Pontos de I/O: HTTP/SSE e SQS entram por `adapter/in`; Postgres, S3, SQS, pgvector, OpenAI e Tika saem por `adapter/out`, sempre atrás de um port de `core/port/out`.
+
+Convenções: sem comentários inline (Javadoc só quando indispensável); novos casos de uso entram como `<Verbo><Objeto>UseCase` + `<Verbo><Objeto>Port` e são registrados por `@Bean` em `config/`.

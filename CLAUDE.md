@@ -17,6 +17,10 @@ NotebookLM empresarial simplificado — plataforma RAG onde usuários organizam 
 │   └── changes/       ← histórico de changes
 ```
 
+## Backend (arquitetura hexagonal)
+
+`app/backend-api`: `core/{domain,port/in,port/out,usecase}`, `adapter/{in/web,in/messaging,out/*}`, `config/`. `core` sem Spring/JPA/AWS/Spring AI (ArchUnit). Um use case por classe, domínio sem setters. Detalhes em `ARCHITECTURE.md` seção 5.
+
 ## Rules
 - Always invoke the agent skill `/caveman full`, `/ponytail full` and `/java-springboot` before starting any task
 
