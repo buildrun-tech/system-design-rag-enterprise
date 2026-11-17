@@ -66,6 +66,8 @@ public class SendMessageUseCase implements SendMessagePort {
         private final Conversation conversation;
         private final MessageStreamListener listener;
         private final StringBuilder response = new StringBuilder();
+        private final long startedAt = System.nanoTime();
+        private long firstTokenAt;
 
         private AssistantReplyUseCase(Conversation conversation, MessageStreamListener listener) {
             this.conversation = conversation;
@@ -79,6 +81,7 @@ public class SendMessageUseCase implements SendMessagePort {
 
         @Override
         public void onToken(String token) {
+            if (firstTokenAt == 0) firstTokenAt = System.nanoTime();
             listener.onToken(token);
             response.append(token);
         }
@@ -97,14 +100,20 @@ public class SendMessageUseCase implements SendMessagePort {
                 listener.onError(error);
                 return;
             }
-            log.info("SSE stream out: conversationId={} messageId={} responseChars={} sources={}",
-                    conversation.id(), saved.id(), response.length(), citedSources.size());
+            var out = log.atInfo().setMessage("SSE stream out").addKeyValue("conversationId", conversation.id())
+                    .addKeyValue("messageId", saved.id()).addKeyValue("responseChars", response.length())
+                    .addKeyValue("sources", citedSources.size()).addKeyValue("outcome", "ok")
+                    .addKeyValue("durationMs", (System.nanoTime() - startedAt) / 1_000_000);
+            if (firstTokenAt != 0) out = out.addKeyValue("ttfbMs", (firstTokenAt - startedAt) / 1_000_000);
+            out.log();
             listener.onDone(saved);
         }
 
         @Override
         public void onError(Throwable error) {
-            log.error("SSE stream failed: conversationId={}", conversation.id(), error);
+            log.atError().setMessage("SSE stream failed").addKeyValue("conversationId", conversation.id())
+                    .addKeyValue("outcome", "error")
+                    .addKeyValue("durationMs", (System.nanoTime() - startedAt) / 1_000_000).setCause(error).log();
             listener.onError(error);
         }
     }

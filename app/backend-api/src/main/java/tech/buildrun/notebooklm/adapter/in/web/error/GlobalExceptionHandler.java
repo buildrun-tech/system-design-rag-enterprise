@@ -21,7 +21,8 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     private ResponseEntity<ErrorResponse> respond(HttpStatus status, String code, String message) {
-        log.warn("Request rejected: status={} code={} message={}", status.value(), code, message);
+        log.atWarn().setMessage("Request rejected").addKeyValue("status", status.value())
+                .addKeyValue("code", code).addKeyValue("reason", message).log();
         return ResponseEntity.status(status).body(new ErrorResponse(code, message));
     }
 

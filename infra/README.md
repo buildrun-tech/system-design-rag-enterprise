@@ -25,9 +25,17 @@ Nenhum desses recursos é gerenciado por este Terraform.
 - S3: sync no bucket `frontend` (`s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket`)
 - CloudFront: `cloudfront:CreateInvalidation`
 - State: `s3:GetObject`/`PutObject`/`ListBucket` no bucket de state (com `use_lockfile`, sem DynamoDB)
-- Apply: permissões de criação/atualização dos recursos de cada módulo (VPC, RDS, S3, SQS, Secrets Manager, Cognito, ALB, ECS, API Gateway, CloudFront) para o `terraform apply` do próprio job de infra
+- Apply: permissões de criação/atualização dos recursos de cada módulo (VPC, RDS, S3, SQS, Secrets Manager, Cognito, ALB, ECS, API Gateway, CloudFront, **CloudWatch** dashboards/alarmes/metric filters e SNS) para o `terraform apply` do próprio job de infra
 
 A mesma role cobre `dev` e `prod`; mitigar com `sub` do OIDC limitado a branches (`develop`, `main`) e GitHub Environments com aprovação manual em prod.
+
+## Observabilidade (dashboard e alarmes)
+
+Módulo `modules/observability`: dashboard `<project>-<env>-service-health`, metric filters sobre o log JSON, alarmes (DLQ, 5xx, idade da fila, tasks saudáveis, `ERROR`, erro por integração) e tópico SNS `<prefix>-alerts`.
+
+- Defina `alert_email` no `terraform.tfvars` do ambiente. A subscription SNS fica `PendingConfirmation` até clicar no link do e-mail.
+- Os widgets de `route`, `External call` e SSE só têm dados depois do deploy do backend com os logs novos.
+- Request metrics do bucket de sources (`EntireBucket`) são cobradas por métrica.
 
 ## Init e plan por ambiente
 

@@ -77,7 +77,7 @@ public class GenerateQuizUseCase implements GenerateQuizPort {
 
     void produce(UUID quizId, List<UUID> sourceIds) {
         long start = System.nanoTime();
-        log.info("Quiz generation in: quizId={} sources={}", quizId, sourceIds.size());
+        log.atInfo().setMessage("Quiz generation in").addKeyValue("quizId", quizId).addKeyValue("sources", sourceIds.size()).log();
         update(quizId, Quiz::markProcessing);
         try {
             backfill(sourceIds);
@@ -92,9 +92,10 @@ public class GenerateQuizUseCase implements GenerateQuizPort {
             List<QuizQuestion> questions = generateValid(topics, chunks).stream()
                     .map(QuizQuestion::withShuffledOptions).toList();
             update(quizId, quiz -> quiz.complete(questions));
-            log.info("Quiz generation out: quizId={} durationMs={}", quizId, (System.nanoTime() - start) / 1_000_000);
+            log.atInfo().setMessage("Quiz generation out").addKeyValue("quizId", quizId)
+                    .addKeyValue("durationMs", (System.nanoTime() - start) / 1_000_000).log();
         } catch (Exception e) {
-            log.error("Quiz generation failed: quizId={}", quizId, e);
+            log.atError().setMessage("Quiz generation failed").addKeyValue("quizId", quizId).setCause(e).log();
             update(quizId, quiz -> quiz.fail(e.getMessage() == null ? "Falha ao gerar o quiz" : e.getMessage()));
         }
     }
@@ -102,7 +103,7 @@ public class GenerateQuizUseCase implements GenerateQuizPort {
     private void backfill(List<UUID> sourceIds) {
         List<ChunkText> pending = chunkInsights.findWithoutKeywords(sourceIds);
         if (pending.isEmpty()) return;
-        log.info("Quiz backfill: chunks={}", pending.size());
+        log.atInfo().setMessage("Quiz backfill").addKeyValue("chunks", pending.size()).log();
         for (int from = 0; from < pending.size(); from += BACKFILL_BATCH_SIZE) {
             List<ChunkText> batch = pending.subList(from, Math.min(from + BACKFILL_BATCH_SIZE, pending.size()));
             chunkEnrichment.enrich(new ArrayList<>(batch)).forEach(chunkInsights::updateEnrichment);
@@ -117,7 +118,7 @@ public class GenerateQuizUseCase implements GenerateQuizPort {
                 validate(questions);
                 return questions;
             } catch (IllegalStateException e) {
-                log.warn("Quiz output invalid: attempt={} reason={}", attempt, e.getMessage());
+                log.atWarn().setMessage("Quiz output invalid").addKeyValue("attempt", attempt).addKeyValue("reason", e.getMessage()).log();
                 last = e;
             }
         }

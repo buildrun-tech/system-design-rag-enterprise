@@ -45,7 +45,7 @@ public class IngestSourceUseCase implements IngestSourcePort {
         } catch (SourceNotFoundException e) {
             throw e;
         } catch (Exception e) {
-            log.error("Transactional Source ingestion failed: sourceId={}", sourceId, e);
+            log.atError().setMessage("Transactional source ingestion failed").addKeyValue("sourceId", sourceId).setCause(e).log();
             RuntimeException wrapped = new RuntimeException(e);
             markFailed(sourceId, wrapped.getMessage());
             throw wrapped;
@@ -55,7 +55,7 @@ public class IngestSourceUseCase implements IngestSourcePort {
     private void run(UUID sourceId, Runnable onProgress) {
         Source source = sourceRepository.findById(sourceId).orElseThrow(SourceNotFoundException::new);
         if (source.isReady()) {
-            log.info("Source already READY, skipping: sourceId={}", sourceId);
+            log.atInfo().setMessage("Source already READY, skipping").addKeyValue("sourceId", sourceId).log();
             return;
         }
         source.markProcessing();
@@ -68,9 +68,14 @@ public class IngestSourceUseCase implements IngestSourcePort {
             throw new UncheckedIOException(e);
         }
 
+        long enrichStart = System.nanoTime();
         List<DocumentChunk> enriched = enrichment.enrich(chunks, onProgress);
+        log.atInfo().setMessage("Source enrichment").addKeyValue("sourceId", sourceId)
+                .addKeyValue("chunks", enriched.size())
+                .addKeyValue("durationMs", (System.nanoTime() - enrichStart) / 1_000_000).log();
 
-        log.info("Source ingestion: sourceId={} s3Key={} chunks={}", sourceId, source.s3Key(), enriched.size());
+        log.atInfo().setMessage("Source ingestion").addKeyValue("sourceId", sourceId)
+                .addKeyValue("s3Key", source.s3Key()).addKeyValue("chunks", enriched.size()).log();
         chunkStore.deleteBySourceId(sourceId);
         chunkStore.index(sourceId, enriched);
         source.markReady();

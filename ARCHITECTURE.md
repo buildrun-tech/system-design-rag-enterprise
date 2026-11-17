@@ -244,3 +244,24 @@ tech.buildrun.notebooklm
 Pontos de I/O: HTTP/SSE e SQS entram por `adapter/in`; Postgres, S3, SQS, pgvector, OpenAI e Tika saem por `adapter/out`, sempre atrás de um port de `core/port/out`.
 
 Convenções: sem comentários inline (Javadoc só quando indispensável); novos casos de uso entram como `<Verbo><Objeto>UseCase` + `<Verbo><Objeto>Port` e são registrados por `@Bean` em `config/`.
+
+## 6. Observabilidade (logs JSON, dashboard e alarmes)
+
+O backend loga em JSON (formato `logstash` do Spring Boot, `logging.structured.format.console`), uma linha por evento, em todos os perfis. Campos de topo: `service`, `env`, MDC (`requestId`, `userId`, `sub`), e dados de negócio via SLF4J fluent API (mensagem constante + `addKeyValue`). Stack trace vai em `stack_trace`.
+
+| Evento (`message`) | Campos principais |
+|---|---|
+| `Request end` | `method`, `path`, `route` (template, usar em `stats by`), `status`, `durationMs`. `/actuator/**` só loga se 5xx. Para SSE mede só até o handler retornar. |
+| `External call` | `integration` (`openrouter`, `s3`, `sqs`, `pgvector`), `operation`, `outcome` (`ok`/`error`), `durationMs` |
+| `SSE stream out` / `SSE stream failed` | `conversationId`, `outcome`, `ttfbMs`, `durationMs` |
+| `Consumer out` / `Source enrichment` | `sourceId`, `chunks`, `durationMs` |
+
+Sem conteúdo do usuário nos logs (`Controller in` só loga UUIDs).
+
+Dashboard `<project>-<env>-service-health` e alarmes (DLQ, 5xx, idade da fila, tasks saudáveis, `ERROR`, erro por integração) são criados pelo módulo `infra/modules/observability` e notificam o tópico SNS `<prefix>-alerts` (`alert_email`; confirmar a subscription pelo e-mail).
+
+```
+fields @timestamp, requestId, route, status, durationMs
+| filter message = "Request end" and status >= 500
+| stats pct(durationMs,95) by route, bin(5m)
+```

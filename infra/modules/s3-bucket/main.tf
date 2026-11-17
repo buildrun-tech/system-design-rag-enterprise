@@ -82,3 +82,10 @@ resource "aws_s3_bucket_policy" "this" {
   bucket = aws_s3_bucket.this.id
   policy = data.aws_iam_policy_document.deny_insecure_transport.json
 }
+
+# metricas de request (4xx/5xx por bucket) pro dashboard; cobrado por metrica
+resource "aws_s3_bucket_metric" "this" {
+  count  = var.enable_request_metrics ? 1 : 0
+  bucket = aws_s3_bucket.this.id
+  name   = "EntireBucket"
+}

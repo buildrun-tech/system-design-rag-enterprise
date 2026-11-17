@@ -21,8 +21,9 @@ module "network" {
 module "sources_bucket" {
   source = "./modules/s3-bucket"
 
-  bucket_name   = "${local.name_prefix}-sources-${local.account_id}"
-  force_destroy = var.force_destroy
+  bucket_name            = "${local.name_prefix}-sources-${local.account_id}"
+  force_destroy          = var.force_destroy
+  enable_request_metrics = true
 }
 
 module "frontend_bucket" {
@@ -179,6 +180,7 @@ module "ecs_service" {
   environment_variables = {
     SPRING_DATASOURCE_URL                    = "jdbc:postgresql://${module.rds_postgres.endpoint}:${module.rds_postgres.port}/${module.rds_postgres.db_name}"
     AWS_REGION                               = var.aws_region
+    APP_ENV                                  = var.environment
     S3_BUCKET_NAME                           = module.sources_bucket.bucket_name
     SQS_INGESTION_QUEUE_URL                  = module.ingest_queue.queue_url
     COGNITO_USER_POOL_ID                     = module.cognito_user_pool.user_pool_id
@@ -201,4 +203,24 @@ module "api_gateway_http" {
   listener_arn           = module.alb.listener_arn
   cors_allowed_origins   = [local.cloudfront_origin]
   integration_timeout_ms = var.integration_timeout_ms
+}
+
+module "observability" {
+  source = "./modules/observability"
+
+  name_prefix = local.name_prefix
+  aws_region  = var.aws_region
+
+  alb_arn_suffix          = module.alb.alb_arn_suffix
+  target_group_arn_suffix = module.ecs_service.target_group_arn_suffix
+  cluster_name            = module.ecs_cluster.cluster_name
+  service_name            = module.ecs_service.service_name
+  desired_count           = var.desired_count
+  rds_identifier          = module.rds_postgres.identifier
+  queue_name              = module.ingest_queue.queue_name
+  dlq_name                = module.ingest_queue.dlq_name
+  bucket_name             = module.sources_bucket.bucket_name
+  api_id                  = module.api_gateway_http.api_id
+  log_group_name          = module.ecs_service.log_group_name
+  alert_email             = var.alert_email
 }

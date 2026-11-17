@@ -41,15 +41,18 @@ public class SqsIngestionListener {
             MDC.put("userId", message.userId().toString());
         }
         long start = System.nanoTime();
-        log.info("Consumer in: SqsIngestionListener.process message={}", message);
+        log.atInfo().setMessage("Consumer in").addKeyValue("consumer", "SqsIngestionListener.process")
+                .addKeyValue("sourceId", message.sourceId()).log();
         try {
             ingestSource.ingest(message.sourceId(), () -> extendVisibility(visibility));
-            log.info("Consumer out: SqsIngestionListener.process sourceId={} durationMs={}",
-                    message.sourceId(), (System.nanoTime() - start) / 1_000_000);
+            log.atInfo().setMessage("Consumer out").addKeyValue("consumer", "SqsIngestionListener.process")
+                    .addKeyValue("sourceId", message.sourceId())
+                    .addKeyValue("durationMs", (System.nanoTime() - start) / 1_000_000).log();
         } catch (Exception e) {
-            log.error("Source ingestion failed: sourceId={}", message.sourceId(), e);
+            log.atError().setMessage("Source ingestion failed").addKeyValue("sourceId", message.sourceId()).setCause(e).log();
             if (isPermanentProviderError(e)) {
-                log.warn("Non-retryable provider error, message acknowledged: sourceId={}", message.sourceId());
+                log.atWarn().setMessage("Non-retryable provider error, message acknowledged")
+                        .addKeyValue("sourceId", message.sourceId()).log();
                 return;
             }
             throw e;
@@ -63,7 +66,7 @@ public class SqsIngestionListener {
         try {
             visibility.changeTo(VISIBILITY_EXTENSION_SECONDS);
         } catch (RuntimeException e) {
-            log.warn("Could not extend SQS visibility timeout", e);
+            log.atWarn().setMessage("Could not extend SQS visibility timeout").setCause(e).log();
         }
     }
 

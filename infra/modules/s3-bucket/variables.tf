@@ -32,3 +32,9 @@ variable "cors_rules" {
   }))
   default = []
 }
+
+variable "enable_request_metrics" {
+  description = "Habilita request metrics (4xx/5xx) do bucket no CloudWatch"
+  type        = bool
+  default     = false
+}

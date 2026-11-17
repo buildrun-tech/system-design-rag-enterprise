@@ -104,6 +104,25 @@ class SendMessageUseCaseTest {
     }
 
     @Test
+    void sseOutLogsOutcomeTtfbAndDuration() {
+        var appender = new ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent>();
+        appender.start();
+        var logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(SendMessageUseCase.class);
+        logger.addAppender(appender);
+        try {
+            conversation(Set.of());
+            chat.script = l -> { l.onToken("a"); l.onComplete(List.of()); };
+
+            useCase.send(conversationId, ownerId, "hi", listener);
+
+            var keys = appender.list.get(0).getKeyValuePairs().stream().map(kv -> kv.key).toList();
+            assertThat(keys).contains("outcome", "ttfbMs", "durationMs");
+        } finally {
+            logger.detachAppender(appender);
+        }
+    }
+
+    @Test
     void usesActiveSourcesWhenPresent() {
         UUID active = UUID.randomUUID();
         conversation(Set.of(active));

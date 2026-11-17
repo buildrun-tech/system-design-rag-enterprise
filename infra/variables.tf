@@ -154,3 +154,9 @@ variable "app_image" {
   type        = string
   default     = "public.ecr.aws/docker/library/nginx:stable"
 }
+
+variable "alert_email" {
+  description = "E-mail que recebe os alarmes do CloudWatch (vazio = sem subscription). A subscription SNS precisa ser confirmada pelo link do e-mail."
+  type        = string
+  default     = ""
+}

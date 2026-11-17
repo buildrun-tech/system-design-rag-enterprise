@@ -1,5 +1,6 @@
 package tech.buildrun.notebooklm.adapter.out.ai;
 
+import tech.buildrun.notebooklm.adapter.out.ExternalCallLog;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.converter.BeanOutputConverter;
 import org.springframework.ai.openai.OpenAiChatModel.ResponseFormat;
@@ -38,7 +39,7 @@ public class OpenAiQuizGenerationAdapter implements StructuredGenerationPort {
                                            int optionCount) {
         String prompt = PROMPT.formatted(questionCount, optionCount, optionCount - 1, String.join(", ", topics),
                 chunks.stream().map(ChunkText::text).collect(Collectors.joining("\n---\n")));
-        QuizOutput output = callModel(prompt);
+        QuizOutput output = ExternalCallLog.measure("openrouter", "quiz.generate", () -> callModel(prompt));
         if (output == null || output.questions() == null) {
             return null;
         }

@@ -1,5 +1,6 @@
 package tech.buildrun.notebooklm.adapter.out.queue;
 
+import tech.buildrun.notebooklm.adapter.out.ExternalCallLog;
 import io.awspring.cloud.sqs.operations.SqsTemplate;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,7 +22,7 @@ public class SqsIngestionQueueAdapter implements IngestionQueuePort {
 
     @Override
     public void enqueue(IngestionRequest request) {
-        sqsTemplate.send(ingestionQueueUrl,
-                new IngestionMessage(request.sourceId(), MDC.get("requestId"), request.userId()));
+        var message = new IngestionMessage(request.sourceId(), MDC.get("requestId"), request.userId());
+        ExternalCallLog.run("sqs", "send", () -> sqsTemplate.send(ingestionQueueUrl, message));
     }
 }
