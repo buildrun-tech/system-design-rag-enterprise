@@ -14,7 +14,7 @@ public class HelloController {
 
     @GetMapping("/hello")
     public String hello(@AuthenticationPrincipal Jwt jwt) {
-        log.info("hello chamado por subject={} claims={}", jwt.getSubject(), jwt.getClaims());
+        log.atInfo().setMessage("hello chamado").addKeyValue("subject", jwt.getSubject()).log();
         return "Hello, " + jwt.getClaimAsString("username") + "!";
     }
 }

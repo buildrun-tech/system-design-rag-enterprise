@@ -1,5 +1,6 @@
 package tech.buildrun.notebooklm.adapter.out.ai;
 
+import tech.buildrun.notebooklm.adapter.out.ExternalCallLog;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.document.MetadataMode;
@@ -36,7 +37,8 @@ public class SpringAiChunkEnrichmentAdapter implements ChunkEnrichmentPort {
         List<EnrichedChunk> enriched = new ArrayList<>(chunks.size());
         for (ChunkText chunk : chunks) {
             Document source = Document.builder().id(chunk.id()).text(chunk.text()).build();
-            List<Document> result = summaryEnricher.apply(keywordEnricher.apply(new ArrayList<>(List.of(source))));
+            List<Document> result = ExternalCallLog.measure("openrouter", "enrich.chunk",
+                    () -> summaryEnricher.apply(keywordEnricher.apply(new ArrayList<>(List.of(source)))));
             result.forEach(doc -> enriched.add(new EnrichedChunk(doc.getId(),
                     String.valueOf(doc.getMetadata().get(KEYWORDS_KEY)),
                     String.valueOf(doc.getMetadata().get(SUMMARY_KEY)))));

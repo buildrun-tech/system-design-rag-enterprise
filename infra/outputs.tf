@@ -45,3 +45,11 @@ output "cognito_client_id" {
 output "cognito_user_pool_id" {
   value = module.cognito_user_pool.user_pool_id
 }
+
+output "dashboard_name" {
+  value = module.observability.dashboard_name
+}
+
+output "alerts_topic_arn" {
+  value = module.observability.alerts_topic_arn
+}

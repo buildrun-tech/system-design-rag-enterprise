@@ -9,3 +9,7 @@ output "alb_sg_id" {
 output "listener_arn" {
   value = aws_lb_listener.http.arn
 }
+
+output "alb_arn_suffix" {
+  value = aws_lb.this.arn_suffix
+}

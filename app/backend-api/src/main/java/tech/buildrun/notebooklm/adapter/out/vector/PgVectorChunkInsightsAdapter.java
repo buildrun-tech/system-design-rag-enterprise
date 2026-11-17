@@ -1,5 +1,6 @@
 package tech.buildrun.notebooklm.adapter.out.vector;
 
+import tech.buildrun.notebooklm.adapter.out.ExternalCallLog;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -69,8 +70,8 @@ public class PgVectorChunkInsightsAdapter implements ChunkInsightsPort {
         String filter = filterExpression(sourceIds);
         Map<String, String> chunksById = new LinkedHashMap<>();
         for (String topic : topics) {
-            vectorStore.similaritySearch(SearchRequest.builder().query(topic).topK(chunksPerTopic)
-                            .filterExpression(filter).build())
+            ExternalCallLog.measure("pgvector", "similarity.search", () -> vectorStore.similaritySearch(
+                            SearchRequest.builder().query(topic).topK(chunksPerTopic).filterExpression(filter).build()))
                     .forEach(chunk -> chunksById.putIfAbsent(chunk.getId(), chunk.getText()));
         }
         return chunksById.entrySet().stream().map(e -> new ChunkText(e.getKey(), e.getValue())).toList();

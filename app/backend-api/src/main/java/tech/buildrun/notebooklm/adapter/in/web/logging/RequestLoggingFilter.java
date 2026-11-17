@@ -7,10 +7,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.slf4j.event.Level;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.servlet.HandlerMapping;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -26,6 +28,11 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
     private static final Logger log = LoggerFactory.getLogger(RequestLoggingFilter.class);
     private static final Pattern SAFE_ID = Pattern.compile("[A-Za-z0-9-]{1,64}");
 
+    private static String route(HttpServletRequest request) {
+        Object pattern = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+        return pattern != null ? pattern.toString() : "unmatched";
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
@@ -35,23 +42,21 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
         response.setHeader(HEADER, requestId);
 
         long start = System.nanoTime();
-        log.info("Request start: {} {}", request.getMethod(), request.getRequestURI());
+        boolean actuator = request.getRequestURI().startsWith("/actuator");
         try {
             chain.doFilter(request, response);
         } catch (ServletException | IOException | RuntimeException e) {
-            log.error("Request unhandled error: {} {}", request.getMethod(), request.getRequestURI(), e);
+            log.atError().setMessage("Request unhandled error").addKeyValue("method", request.getMethod())
+                    .addKeyValue("path", request.getRequestURI()).setCause(e).log();
             throw e;
         } finally {
             int status = response.getStatus();
-            String msg = "Request end: {} {} status={} durationMs={}";
-            Object[] args = {request.getMethod(), request.getRequestURI(), status,
-                    (System.nanoTime() - start) / 1_000_000};
-            if (status >= 500) {
-                log.error(msg, args);
-            } else if (status >= 400) {
-                log.warn(msg, args);
-            } else {
-                log.info(msg, args);
+            if (!actuator || status >= 500) {
+                Level level = status >= 500 ? Level.ERROR : status >= 400 ? Level.WARN : Level.INFO;
+                log.atLevel(level).setMessage("Request end").addKeyValue("method", request.getMethod())
+                        .addKeyValue("path", request.getRequestURI()).addKeyValue("route", route(request))
+                        .addKeyValue("status", status)
+                        .addKeyValue("durationMs", (System.nanoTime() - start) / 1_000_000).log();
             }
             MDC.clear();
         }

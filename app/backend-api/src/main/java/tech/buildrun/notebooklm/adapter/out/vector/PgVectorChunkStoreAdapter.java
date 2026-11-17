@@ -1,5 +1,6 @@
 package tech.buildrun.notebooklm.adapter.out.vector;
 
+import tech.buildrun.notebooklm.adapter.out.ExternalCallLog;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,12 +27,13 @@ public class PgVectorChunkStoreAdapter implements ChunkStorePort {
 
     @Override
     public void index(UUID sourceId, List<DocumentChunk> chunks) {
-        vectorStore.add(chunks.stream().map(chunk -> toDocument(sourceId, chunk)).toList());
+        ExternalCallLog.run("pgvector", "index",
+                () -> vectorStore.add(chunks.stream().map(chunk -> toDocument(sourceId, chunk)).toList()));
     }
 
     @Override
     public void deleteBySourceId(UUID sourceId) {
-        vectorStore.delete("source_id == '%s'".formatted(sourceId));
+        ExternalCallLog.run("pgvector", "delete", () -> vectorStore.delete("source_id == '%s'".formatted(sourceId)));
     }
 
     private Document toDocument(UUID sourceId, DocumentChunk chunk) {

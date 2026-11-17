@@ -1,5 +1,6 @@
 package tech.buildrun.notebooklm.adapter.out.storage;
 
+import tech.buildrun.notebooklm.adapter.out.ExternalCallLog;
 import io.awspring.cloud.s3.S3Template;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -22,20 +23,22 @@ public class S3FileStorageAdapter implements FileStoragePort {
 
     @Override
     public void store(String key, InputStream content) {
-        s3Template.upload(bucketName, key, content, null);
+        ExternalCallLog.run("s3", "upload", () -> s3Template.upload(bucketName, key, content, null));
     }
 
     @Override
     public InputStream download(String key) {
-        try {
-            return s3Template.download(bucketName, key).getInputStream();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return ExternalCallLog.measure("s3", "download", () -> {
+            try {
+                return s3Template.download(bucketName, key).getInputStream();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
     }
 
     @Override
     public void delete(String key) {
-        s3Template.deleteObject(bucketName, key);
+        ExternalCallLog.run("s3", "delete", () -> s3Template.deleteObject(bucketName, key));
     }
 }

@@ -43,8 +43,15 @@ spring:
         static: ${AWS_REGION:us-east-1}
 
 logging:
-  pattern:
-    level: "%5p [rid=%X{requestId:-} uid=%X{userId:-} sub=%X{sub:-}]"
+  structured:
+    format:
+      console: logstash
+    json:
+      add:
+        service: ${SERVICE_NAME:notebooklm-backend-api}
+        env: ${APP_ENV:local}
+  level:
+    org.hibernate.orm.jdbc.error: ERROR
 
 app:
   cors:

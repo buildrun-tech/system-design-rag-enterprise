@@ -1,5 +1,6 @@
 package tech.buildrun.notebooklm.adapter.out.ai;
 
+import tech.buildrun.notebooklm.adapter.out.ExternalCallLog;
 import org.slf4j.MDC;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.Message;
@@ -37,6 +38,7 @@ import java.util.stream.Collectors;
 @Component
 public class OpenAiChatCompletionAdapter implements ChatCompletionPort {
 
+    private static final String INTEGRATION = "openrouter";
     private static final int SNIPPET_MAX_CHARS = 300;
     private static final String RETRIEVAL_NAME = "retrieval";
     private static final String RETRIEVAL_LABEL = "Buscando nas suas fontes";
@@ -129,6 +131,7 @@ public class OpenAiChatCompletionAdapter implements ChatCompletionPort {
         private final String retrievalId = UUID.randomUUID().toString();
         private final AtomicBoolean retrievalEnded = new AtomicBoolean();
         private long retrievalStartedAt;
+        private final long startedAt = System.nanoTime();
 
         private Stream(ChatStreamListener listener) {
             this.listener = listener;
@@ -179,6 +182,7 @@ public class OpenAiChatCompletionAdapter implements ChatCompletionPort {
 
         private void onComplete() {
             if (!closed.compareAndSet(false, true)) return;
+            ExternalCallLog.record(INTEGRATION, "chat.stream", startedAt, null);
             withMdc(() -> {
                 try {
                     List<CitedSource> sources;
@@ -197,6 +201,7 @@ public class OpenAiChatCompletionAdapter implements ChatCompletionPort {
 
         private void onError(Throwable error) {
             if (!closed.compareAndSet(false, true)) return;
+            ExternalCallLog.record(INTEGRATION, "chat.stream", startedAt, error);
             withMdc(() -> {
                 try {
                     listener.onError(error);

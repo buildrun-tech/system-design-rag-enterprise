@@ -17,3 +17,11 @@ output "task_role_arn" {
 output "task_sg_id" {
   value = aws_security_group.task.id
 }
+
+output "target_group_arn_suffix" {
+  value = aws_lb_target_group.this.arn_suffix
+}
+
+output "log_group_name" {
+  value = aws_cloudwatch_log_group.this.name
+}
