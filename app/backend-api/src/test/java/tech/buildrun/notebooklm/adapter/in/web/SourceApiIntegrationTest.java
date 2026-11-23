@@ -13,6 +13,9 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import tech.buildrun.notebooklm.AbstractIntegrationTest;
+import tech.buildrun.notebooklm.adapter.out.persistence.repository.OutboxJpaRepository;
+import tech.buildrun.notebooklm.core.domain.outbox.OutboxEventType;
+import tech.buildrun.notebooklm.core.domain.outbox.OutboxStatus;
 import tech.buildrun.notebooklm.core.domain.notebook.Notebook;
 import tech.buildrun.notebooklm.core.domain.source.Source;
 import tech.buildrun.notebooklm.core.domain.source.SourceType;
@@ -27,6 +30,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -51,6 +55,9 @@ class SourceApiIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private SourceRepositoryPort sourceRepository;
+
+    @Autowired
+    private OutboxJpaRepository outboxRepository;
 
     @MockitoBean
     private S3Template s3Template;
@@ -79,7 +86,12 @@ class SourceApiIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.status").value("PENDING"));
 
         verify(s3Template).upload(any(), any(), any(), any());
-        verify(sqsTemplate).send(any(), any(tech.buildrun.notebooklm.adapter.out.queue.IngestionMessage.class));
+        verify(sqsTemplate, never()).send(any(String.class), any());
+        assertThat(outboxRepository.findAll()).anySatisfy(event -> {
+            assertThat(event.getType()).isEqualTo(OutboxEventType.INGESTION_REQUESTED);
+            assertThat(event.getStatus()).isEqualTo(OutboxStatus.PENDING);
+            assertThat(event.getPayload()).containsKey("sourceId");
+        });
     }
 
     @Test

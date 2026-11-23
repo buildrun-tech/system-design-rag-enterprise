@@ -1,6 +1,11 @@
 locals {
   metric_namespace = "${var.name_prefix}/App"
   integrations     = ["openrouter", "s3", "sqs", "pgvector"]
+  outbox_metrics = {
+    OutboxSent   = "Outbox event sent"
+    OutboxRetry  = "Outbox publish failed, will retry"
+    OutboxFailed = "Outbox event failed permanently"
+  }
   alarm_defaults = {
     alarm_actions = [aws_sns_topic.alerts.arn]
     ok_actions    = [aws_sns_topic.alerts.arn]
@@ -174,4 +179,38 @@ resource "aws_cloudwatch_metric_alarm" "integration_errors" {
   ok_actions          = local.alarm_defaults.ok_actions
 
   depends_on = [aws_cloudwatch_log_metric_filter.integration_errors]
+}
+
+# ---- outbox: sucesso, retry e falha definitiva a partir dos logs do relay ----
+
+resource "aws_cloudwatch_log_metric_filter" "outbox" {
+  for_each = local.outbox_metrics
+
+  name           = "${var.name_prefix}-${lower(each.key)}"
+  log_group_name = var.log_group_name
+  pattern        = "{ $.message = \"${each.value}\" }"
+
+  metric_transformation {
+    name          = each.key
+    namespace     = local.metric_namespace
+    value         = "1"
+    default_value = "0"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "outbox_failed" {
+  alarm_name          = "${var.name_prefix}-outbox-failed"
+  alarm_description   = "Evento do outbox esgotou as tentativas e ficou FAILED (precisa de intervenção)"
+  namespace           = local.metric_namespace
+  metric_name         = "OutboxFailed"
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = local.alarm_defaults.alarm_actions
+  ok_actions          = local.alarm_defaults.ok_actions
+
+  depends_on = [aws_cloudwatch_log_metric_filter.outbox]
 }

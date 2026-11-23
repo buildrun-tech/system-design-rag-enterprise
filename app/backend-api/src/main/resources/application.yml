@@ -66,3 +66,11 @@ aws:
     bucket-name: ${S3_BUCKET_NAME:}
   sqs:
     ingestion-queue-url: ${SQS_INGESTION_QUEUE_URL:}
+
+outbox:
+  poll-interval: ${OUTBOX_POLL_INTERVAL:1s}
+  batch-size: ${OUTBOX_BATCH_SIZE:10}
+  max-attempts: ${OUTBOX_MAX_ATTEMPTS:10}
+  backoff-base: 2s
+  backoff-cap: 5m
+  retention: 7d

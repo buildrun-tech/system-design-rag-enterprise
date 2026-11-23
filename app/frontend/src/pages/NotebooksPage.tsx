@@ -18,9 +18,10 @@ export default function NotebooksPage() {
   const [name, setName] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    apiFetch<Page<Notebook>>('/api/v1/notebooks', token).then((page) => setNotebooks(page.content))
+    apiFetch<Page<Notebook>>('/api/v1/notebooks', token).then((page) => setNotebooks(page.content)).finally(() => setLoading(false))
   }, [token])
 
   async function handleDeleteNotebook(notebookId: string) {
@@ -68,7 +69,13 @@ export default function NotebooksPage() {
               novo notebook
             </Button>
           </div>
-          {notebooks.length === 0 ? (
+          {loading ? (
+            <div className="grid-cards" aria-busy="true">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="skeleton skeleton--card" />
+              ))}
+            </div>
+          ) : notebooks.length === 0 ? (
             <p className="empty-state">Nenhum notebook ainda — crie o primeiro.</p>
           ) : (
             <div className="grid-cards">
