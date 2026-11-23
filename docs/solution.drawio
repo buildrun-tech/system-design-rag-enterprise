@@ -13,7 +13,7 @@
     </mxGraphModel>
   </diagram>
   <diagram id="6p-FRyset3bBNmSDke7E" name="Page-2">
-    <mxGraphModel dx="951" dy="481" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="774" dy="391" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -810,6 +810,143 @@
         </mxCell>
         <mxCell id="vN3VjP8UwwJPl5lBVyCn-20" value="Client Side" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" parent="1" vertex="1">
           <mxGeometry x="3250" y="1390" width="90" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="KZjHRMdciJtTFz7UM0Ax-1" value="*logs sampling rate" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+          <mxGeometry x="1485" y="1190" width="130" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-1" value="BD TABLE&lt;div&gt;ENTITY&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="3375" y="1725" width="80" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-2" value="SQS" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="3375" y="1873" width="87" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;curved=1;" edge="1" parent="1" source="jpms2Tf_4BNY0nnYfHdB-3" target="jpms2Tf_4BNY0nnYfHdB-1">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="3272" y="1820" />
+              <mxPoint x="3272" y="1740" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-7" value="insert" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="jpms2Tf_4BNY0nnYfHdB-5">
+          <mxGeometry x="0.0915" y="-3" relative="1" as="geometry">
+            <mxPoint x="7" y="11" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-10" style="edgeStyle=orthogonalEdgeStyle;shape=connector;curved=1;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=default;align=center;verticalAlign=middle;fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;endArrow=classic;" edge="1" parent="1" source="jpms2Tf_4BNY0nnYfHdB-3" target="jpms2Tf_4BNY0nnYfHdB-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-11" value="insert" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;" vertex="1" connectable="0" parent="jpms2Tf_4BNY0nnYfHdB-10">
+          <mxGeometry x="0.0981" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-3" value="THREAD&lt;br&gt;api/consumer" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="3125" y="1800" width="94" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-16" style="edgeStyle=orthogonalEdgeStyle;shape=connector;curved=1;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=default;align=center;verticalAlign=middle;fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;endArrow=classic;" edge="1" parent="1" source="jpms2Tf_4BNY0nnYfHdB-4" target="jpms2Tf_4BNY0nnYfHdB-14">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-4" value="BD TABLE&lt;div&gt;OUTBOX&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="3375" y="1800" width="80" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-6" value="Transacao Atomica" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="3237" y="1680" width="130" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-12" value="202 ACCEPTED" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="3000" y="1790" width="94" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-13" value="ACK" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="3000" y="1830" width="94" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-18" style="edgeStyle=orthogonalEdgeStyle;shape=connector;curved=1;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=default;align=center;verticalAlign=middle;fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;endArrow=classic;" edge="1" parent="1" source="jpms2Tf_4BNY0nnYfHdB-14" target="jpms2Tf_4BNY0nnYfHdB-17">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-14" value="CDC" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;" vertex="1" parent="1">
+          <mxGeometry x="3523" y="1800" width="50" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-15" value="Change Data Capture" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;" vertex="1" parent="1">
+          <mxGeometry x="3524.5" y="1787" width="130" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-19" style="edgeStyle=orthogonalEdgeStyle;shape=connector;curved=1;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeColor=default;align=center;verticalAlign=middle;fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;endArrow=classic;" edge="1" parent="1" source="jpms2Tf_4BNY0nnYfHdB-17" target="jpms2Tf_4BNY0nnYfHdB-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-20" value="pub" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;" vertex="1" connectable="0" parent="jpms2Tf_4BNY0nnYfHdB-19">
+          <mxGeometry x="-0.0116" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-17" value="Lambda" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="3543" y="1868" width="80" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-22" value="BD TABLE&lt;div&gt;ENTITY&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="3365" y="2005" width="80" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-23" value="SQS" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="3367" y="2190" width="87" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;curved=1;" edge="1" parent="1" source="jpms2Tf_4BNY0nnYfHdB-28" target="jpms2Tf_4BNY0nnYfHdB-22">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="3262" y="2100" />
+              <mxPoint x="3262" y="2020" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-25" value="insert" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="jpms2Tf_4BNY0nnYfHdB-24">
+          <mxGeometry x="0.0915" y="-3" relative="1" as="geometry">
+            <mxPoint x="15" y="11" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-26" style="edgeStyle=orthogonalEdgeStyle;shape=connector;curved=1;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=default;align=center;verticalAlign=middle;fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;endArrow=classic;" edge="1" parent="1" source="jpms2Tf_4BNY0nnYfHdB-28" target="jpms2Tf_4BNY0nnYfHdB-30">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-27" value="insert" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;" vertex="1" connectable="0" parent="jpms2Tf_4BNY0nnYfHdB-26">
+          <mxGeometry x="0.0981" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-28" value="THREAD&lt;br&gt;api/consumer" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="3110" y="2080" width="99" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-30" value="BD TABLE&lt;div&gt;OUTBOX&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="3365" y="2080" width="80" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-31" value="Transacao Atomica" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="3227" y="1960" width="130" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-32" value="202 ACCEPTED" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="2990" y="2070" width="94" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-33" value="ACK" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="2990" y="2110" width="94" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-37" style="edgeStyle=orthogonalEdgeStyle;shape=connector;curved=1;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=default;align=center;verticalAlign=middle;fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;endArrow=classic;" edge="1" parent="1" source="jpms2Tf_4BNY0nnYfHdB-39" target="jpms2Tf_4BNY0nnYfHdB-30">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="3290" y="2168" />
+              <mxPoint x="3290" y="2150" />
+              <mxPoint x="3405" y="2150" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-38" value="pooling (SELECT&amp;nbsp; ...)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;" vertex="1" connectable="0" parent="jpms2Tf_4BNY0nnYfHdB-37">
+          <mxGeometry x="-0.0116" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-41" style="edgeStyle=orthogonalEdgeStyle;shape=connector;curved=1;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=default;align=center;verticalAlign=middle;fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;endArrow=classic;" edge="1" parent="1" source="jpms2Tf_4BNY0nnYfHdB-39" target="jpms2Tf_4BNY0nnYfHdB-23">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="3170" y="2205" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-39" value="Thread&lt;div&gt;@Scheduler&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="3110" y="2153" width="100" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="jpms2Tf_4BNY0nnYfHdB-40" value="PENDING / SENT / FAILED" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontFamily=Helvetica;fontSize=11;fontColor=default;labelBackgroundColor=default;" vertex="1" parent="1">
+          <mxGeometry x="3440" y="2080" width="160" height="30" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

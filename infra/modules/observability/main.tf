@@ -3,51 +3,63 @@ locals {
 
   # Logs Insights: so a janela do widget; eventos de request filtram OPTIONS (preflight) pra nao inflar numeros
   q = {
-    traffic      = <<-EOT
+    traffic         = <<-EOT
       SOURCE '${var.log_group_name}'
       | filter message = "Request end" and method != "OPTIONS"
       | stats count(*) as requests by route
       | sort requests desc
     EOT
-    latency      = <<-EOT
+    latency         = <<-EOT
       SOURCE '${var.log_group_name}'
       | filter message = "Request end" and method != "OPTIONS"
       | stats count(*) as requests, avg(durationMs) as avgMs, pct(durationMs, 95) as p95Ms, pct(durationMs, 99) as p99Ms by route
       | sort p95Ms desc
     EOT
-    errors       = <<-EOT
+    errors          = <<-EOT
       SOURCE '${var.log_group_name}'
       | filter message = "Request end" and status >= 400
       | stats count(*) as n by status, route
       | sort n desc
     EOT
-    integrations = <<-EOT
+    integrations    = <<-EOT
       SOURCE '${var.log_group_name}'
       | filter message = "External call"
       | stats count(*) as calls, sum(outcome = "error") as errors, avg(durationMs) as avgMs, pct(durationMs, 95) as p95Ms by integration, operation
       | sort p95Ms desc
     EOT
-    cognito_401  = <<-EOT
+    cognito_401     = <<-EOT
       SOURCE '${var.log_group_name}'
       | filter message = "Request end" and status = 401
       | stats count(*) as unauthorized by bin(5m)
     EOT
-    ingestion    = <<-EOT
+    ingestion       = <<-EOT
       SOURCE '${var.log_group_name}'
       | filter message in ["Consumer out", "Source ingestion failed"]
       | stats count(*) as n, avg(durationMs) as avgMs, max(durationMs) as maxMs by message
     EOT
-    enrichment   = <<-EOT
+    enrichment      = <<-EOT
       SOURCE '${var.log_group_name}'
       | filter message = "Source enrichment"
       | stats count(*) as sources, avg(chunks) as avgChunks, avg(durationMs) as avgMs, max(durationMs) as maxMs
     EOT
-    sse          = <<-EOT
+    sse             = <<-EOT
       SOURCE '${var.log_group_name}'
       | filter message in ["SSE stream out", "SSE stream failed"]
       | stats count(*) as streams, avg(ttfbMs) as avgTtfbMs, pct(durationMs, 95) as p95DurationMs by outcome
     EOT
-    quiz         = <<-EOT
+    outbox          = <<-EOT
+      SOURCE '${var.log_group_name}'
+      | filter message in ["Outbox event sent", "Outbox publish failed, will retry", "Outbox event failed permanently"]
+      | stats count(*) as n, avg(attempts) as avgAttempts, max(attempts) as maxAttempts by message
+    EOT
+    outbox_failures = <<-EOT
+      SOURCE '${var.log_group_name}'
+      | filter message in ["Outbox publish failed, will retry", "Outbox event failed permanently"]
+      | fields @timestamp, message, outboxId, aggregateId, attempts, stack_trace
+      | sort @timestamp desc
+      | limit 20
+    EOT
+    quiz            = <<-EOT
       SOURCE '${var.log_group_name}'
       | filter message in ["Quiz generation out", "Quiz generation failed"]
       | stats count(*) as n, avg(durationMs) as avgMs by message
@@ -170,6 +182,22 @@ locals {
     title = "Chat SSE (ttfb e duração)", region = var.aws_region, view = "table", query = local.q.sse } },
     { type = "log", x = 0, y = 44, width = 12, height = 6, properties = {
     title = "Quiz", region = var.aws_region, view = "table", query = local.q.quiz } },
+
+    # ---- linha 5: outbox ----
+    { type = "text", x = 0, y = 50, width = 24, height = 1,
+    properties = { markdown = "## Outbox: publicação no SQS (sucesso, retry, falha)" } },
+    { type = "metric", x = 0, y = 51, width = 10, height = 6, properties = {
+      title   = "Eventos do outbox (5 min)", view = "timeSeries", region = var.aws_region, period = 300, stat = "Sum",
+      metrics = [for m in keys(local.outbox_metrics) : [local.metric_namespace, m]]
+    } },
+    { type = "metric", x = 10, y = 51, width = 6, height = 6, properties = {
+      title   = "Última hora: enviados / retries / falhas", view = "singleValue", region = var.aws_region, period = 3600, stat = "Sum",
+      metrics = [for m in keys(local.outbox_metrics) : [local.metric_namespace, m]]
+    } },
+    { type = "log", x = 16, y = 51, width = 8, height = 6, properties = {
+    title = "Outbox por resultado (tentativas)", region = var.aws_region, view = "table", query = local.q.outbox } },
+    { type = "log", x = 0, y = 57, width = 24, height = 6, properties = {
+    title = "Últimas falhas do outbox", region = var.aws_region, view = "table", query = local.q.outbox_failures } },
   ]
 }
 

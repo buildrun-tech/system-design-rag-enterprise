@@ -47,6 +47,8 @@ export default function WorkspacePage() {
   const navigate = useNavigate()
 
   const [sources, setSources] = useState<Source[]>([])
+  const [loadingSources, setLoadingSources] = useState(true)
+  const [loadingMessages, setLoadingMessages] = useState(true)
   const [sourceError, setSourceError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [quizStep, setQuizStep] = useState<'closed' | 'confirm' | 'open'>('closed')
@@ -64,7 +66,7 @@ export default function WorkspacePage() {
 
   useEffect(() => {
     if (!notebookId || !token) return
-    apiFetch<NotebookDetail>(`/api/v1/notebooks/${notebookId}`, token).then((detail) => setSources(detail.sources))
+    apiFetch<NotebookDetail>(`/api/v1/notebooks/${notebookId}`, token).then((detail) => setSources(detail.sources)).finally(() => setLoadingSources(false))
   }, [notebookId, token])
 
   useEffect(() => {
@@ -127,7 +129,7 @@ export default function WorkspacePage() {
       setConversation(active)
       const history = await apiFetch<ConversationMessage[]>(`/api/v1/conversations/${active.id}/messages`, token)
       setMessages(history)
-    })()
+    })().finally(() => setLoadingMessages(false))
   }, [notebookId, token])
 
   useEffect(() => () => abortRef.current?.abort(), [])
@@ -276,7 +278,13 @@ export default function WorkspacePage() {
             <input ref={fileInputRef} type="file" hidden onChange={handleFileSelected} />
           </div>
           {sourceError && <p role="alert">{sourceError}</p>}
-          {sources.length === 0 ? (
+          {loadingSources ? (
+            <div className="stack" aria-busy="true">
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="skeleton" />
+              ))}
+            </div>
+          ) : sources.length === 0 ? (
             <p className="empty-state">Nenhuma fonte ainda.</p>
           ) : (
             sources.map((source) => (
@@ -343,6 +351,12 @@ export default function WorkspacePage() {
             </div>
           </div>
           <div className="chat-messages" ref={chatRef}>
+            {loadingMessages && (
+              <div className="stack" aria-busy="true">
+                <span className="skeleton skeleton--block" />
+                <span className="skeleton skeleton--block" />
+              </div>
+            )}
             {messages.map((message) => (
               <div key={message.id} className={`message-bubble message-bubble--${message.role}`}>
                 <span className="message-role">{message.role === 'user' ? 'Você' : 'Assistente'}</span>

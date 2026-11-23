@@ -94,8 +94,13 @@ Documentos relacionados: [DOMAIN.md](DOMAIN.md) · [API.md](API.md)
     │── 2. Cria registro em `sources` com status = PENDING
     │── 3. Upload do arquivo para S3
     │        chave: {userId}/{notebookId}/{sourceId}/{filename}
-    │── 4. Publica mensagem SQS: { "sourceId": "uuid" }
+    │── 4. Grava evento INGESTION_REQUESTED em `tb_outbox` (PENDING) na MESMA transação do passo 2
     │── 5. Retorna 202 Accepted + { "sourceId": "...", "status": "PENDING" }
+    │
+    ▼ [assíncrono — Outbox relay, @Scheduled em cada instância]
+    │── SELECT ... FOR UPDATE SKIP LOCKED (lote) → publica no SQS → status SENT
+    │   falha: attempts++, backoff exponencial (next_attempt_at); estourou max-attempts → FAILED
+    │   entrega at-least-once; o consumer é idempotente (source READY é ignorada)
     │
     ▼ [assíncrono — SQS Consumer no mesmo app]
     │
@@ -236,6 +241,7 @@ tech.buildrun.notebooklm
 ├── adapter
 │   ├── in/web/        controller, dto, mapper, sse, security, error, logging
 │   ├── in/messaging/  SqsIngestionListener
+│   ├── in/scheduling/ OutboxScheduler (relay e retenção do outbox)
 │   └── out/           persistence (JpaEntity + mapper + RepositoryAdapter), storage (S3), queue (SQS),
 │                      vector (pgvector), ai (OpenAI, Tika, enrichment, tools), async
 └── config/            wiring: beans dos use cases, Security, WebMvc, ChatClient
